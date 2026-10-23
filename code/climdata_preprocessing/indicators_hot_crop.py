@@ -1,59 +1,72 @@
-## COMPUTATION OF HOT EXTREME CLIMATE INDICATORS
+## COMPUTATION OF HOT EXTREME CLIMATE INDICATORS — CROP-SPECIFIC
 
-# Define crop name here
-crop = "mai"  # options: mai, soy, ri1, ri2, swh, wwh
-
-# This script processes daily temperature (tasmax) data from the GSWP3-W5E5 dataset to compute 
-# annual indicators of hot climate extremes.
-
-# Indicators are calculated:
-# - Per calendar year
-# - At each grid cell where crops are grown
-# - Only using the subset of days within the year when the corresponding crop is grown
-
-# The growing season periods are derived from crop- and land-use-specific calendars.
-
-# These data are further used for the crop specific analysis
-# (see code/notebooks/main.qmd) presented in the appendix.
-
-# Output: gridded climate extreme indicators saved to 
-# GGCMI-validation/data/processed/extremes_indicators/extremes_indicators/crop_specific/
+# This script processes daily maximum temperature (tasmax) data from the GSWP3-W5E5 dataset
+# to compute annual indicators of heat climate extremes for a single specified crop.
+#
+# Unlike the crop-aggregated version, growing season days here correspond strictly to
+# the target crop's own calendar (firr or noirr depending on land use), not the union
+# across all crops at a location.
+#
+# All crops (mai, ri1, ri2, soy, swh, wwh) are processed in one run.
+#
+# Output: one NetCDF per crop saved to
+#   GGCMI-validation/data/processed/extremes_indicators/crop_specific/hot_indicators_{crop}.nc
+#
+# Variables follow the same naming conventions as the aggregated version:
+#   FHD_p{q}      — Frequency of Hot Days (percentile threshold)
+#   LHS_p{q}      — Longest Hot Spell (percentile threshold)
+#   thresh_p{q}   — Climatological percentile threshold at each grid cell (K)
+#   FHD_{T}C      — Frequency of Hot Days (absolute threshold)
+#   LHS_{T}C      — Longest Hot Spell (absolute threshold)
 
 import numpy as np
 import xarray as xr
-import pandas as pd 
-from datetime import datetime, timedelta 
-import pyreadr 
+import pandas as pd
+import pyreadr
+from pathlib import Path
 
-# User-defined base path to the repository
-repo_path = Path("") #change accordingly!
+## Paths and thresholds 
 
-## 1. Get the temperature data and join them
+repo_path = Path("C:/Users/DeMae003/OneDrive - Universiteit Utrecht/Documents/GGCMI/")
+
+crop_names = ['mai', 'ri1', 'ri2', 'soy', 'swh', 'wwh']
+
+PERCENTILE_THRESHOLDS = [90, 95, 99]
+
+ABSOLUTE_THRESHOLDS = {
+    "30C": 30,   # 30°C 
+    "35C": 35,   # 35°C 
+    "40C": 40,   # 40°C 
+}
+
+## 1. Load temperature data
 
 temp1 = xr.open_dataset(repo_path / "GGCMI-validation/data/raw/climdata/gswp3-w5e5_obsclim_tasmax_global_daily_1981_1990.nc", engine='netcdf4')
 temp2 = xr.open_dataset(repo_path / "GGCMI-validation/data/raw/climdata/gswp3-w5e5_obsclim_tasmax_global_daily_1991_2000.nc", engine='netcdf4')
 temp3 = xr.open_dataset(repo_path / "GGCMI-validation/data/raw/climdata/gswp3-w5e5_obsclim_tasmax_global_daily_2001_2010.nc", engine='netcdf4')
 temp4 = xr.open_dataset(repo_path / "GGCMI-validation/data/raw/climdata/gswp3-w5e5_obsclim_tasmax_global_daily_2011_2019.nc", engine='netcdf4')
-
 temp_days = xr.concat([temp1, temp2, temp3, temp4], dim='time')
 
-## 2. Bring in crop data and growing season data 
+## 2. Crop data (read the RData file once; select per crop in the loop)
 
-# Load crop data (earlier processed in R as RData)
-cropdat = pyreadr.read_r(repo_path / "GGCMI-validation/data/processed/crop_specific_data.RData")[f"dat_{crop}"] 
-cropdat_unique = cropdat.drop_duplicates(subset = ["lon", "lat"])
+# Map crop name to the correct RData key
+rdata_key_map = {
+    "swh": "dat_swh",
+    "wwh": "dat_wwh",
+    "soy": "dat_soy",  
+    "ri1": "dat_ri1",   
+    "ri2": "dat_ri2",   
+    "mai": "dat_mai",
+}
 
-# Load growing seasons
-season_firr = xr.open_dataset(repo_path / f"GGCMI-validation/data/raw/other/ggcmi-crop-calendar-phase3_2015soc_{crop}_firr.nc")
-season_noirr = xr.open_dataset(repo_path / f"GGCMI-validation/data/raw/other/ggcmi-crop-calendar-phase3_2015soc_{crop}_noirr.nc")
+rdata_path = repo_path / "GGCMI-validation/data/processed/integrated_cropdata/crop_specific_data.RData"
+rdata = pyreadr.read_r(rdata_path)
 
-## 3. Define function to calculate longest consecutive hot period 
+cal_base = repo_path / "GGCMI-validation/data/raw/other"
+
+## 4. Helper function — longest consecutive sequence of 1s
+
 def extreme_length(array):
-    # INPUT:
-    # - Array where we want to find maximum length of consecutive hot days
-    # OUTPUT:
-    # - Maximum length of hot days
-
     max_length = 0
     current_length = 0
     for value in array:
@@ -64,161 +77,297 @@ def extreme_length(array):
             current_length = 0
     return max_length
 
+## 5. Main computation function
 
-## 4. Calculate growing season statistics
+def season_stat(climate, season_firr, season_noirr, cropdat,
+                percentile_thresholds=PERCENTILE_THRESHOLDS,
+                absolute_thresholds=ABSOLUTE_THRESHOLDS):
+    # INPUT:
+    # - climate: xarray dataset with tasmax
+    # - season_firr: full-irrigation crop calendar xarray dataset for the target crop
+    # - season_noirr: rainfed crop calendar xarray dataset for the target crop
+    # - cropdat: dataframe with grid cells where the target crop is grown,
+    #            with columns rain_area, irr_area, lat, lon
+    # - percentile_thresholds: list of upper-tail percentiles
+    # - absolute_thresholds: dict of {label: temp_C}
+    # OUTPUT:
+    # - xr.Dataset with FHD, LHS, and thresh variables for all threshold definitions
 
-# The following function will calculate the climate extreme indicators by carefully selecting the growing season days using ISIMIP´s crop calendars
-# and regrouping them in "growing season years" which can span 2 calendar years in the Southern Hemisphere. For these growing season days, 
-# a threshold climate value is calculated by the 95th percentile. All days above this value are considered extremely "hot". We count the frequency of 
-# such hot days for each growing season year and location and we also compute the length of the longest consecutive period of hot days for each 
-# growing season year and location. 
+    # Coordinates 
+    climate['time'] = pd.to_datetime(climate['time'].values)
+    unique_years = np.unique(climate['time.year'].values)
+    latitudes    = np.unique(cropdat["lat"])
+    longitudes   = np.unique(cropdat["lon"])
 
+    dims   = ["year", "lat", "lon"]
+    coords = {"year": unique_years, "lat": latitudes, "lon": longitudes}
+    shape  = (len(unique_years), len(latitudes), len(longitudes))
 
-def season_stat(climate, season_firr, season_noirr, cropdat):
-      # INPUT: 
-      # - climate: xarray.Dataset with climate variable
-      # - season_firr: full irrigation crop calendar xarray
-      # - season_noirr: full rainfed crop calendar xarray
-      # - cropdat: dataframe with locations where <crop> is grown and land use information in terms of irrigation or rainfed. Every row should be a unique location.
-      # OUTPUT:
-      # - FHD: xarray data array with the Frequency of extreme Hot Days for each location and growing season year
-      # - LHS: xarray data array with the longest period of consecutive hot days (Longest Hot Spell) for each location and growing season year
+    thresh_coords = {"lat": latitudes, "lon": longitudes}
+    thresh_shape  = (len(latitudes), len(longitudes))
 
-     # Extract the start and end days of the growing seasons
-      start_day_firr = season_firr['planting_day']
-      end_day_firr= season_firr['maturity_day']
-      start_day_noirr = season_noirr['planting_day']
-      end_day_noirr= season_noirr['maturity_day']
+    #  Initialise arrays 
+    arrays = {}
 
-     # Get coordinates from climate
-      climate['time'] = pd.to_datetime(climate['time'].values)
-      unique_years = np.unique(climate['time.year'].values)
-      latitudes = np.unique(cropdat["lat"])
-      longitudes = np.unique(cropdat["lon"])
+    for q in percentile_thresholds:
+        label = f"p{q:02d}"
+        arrays[f"FHD_{label}"]    = xr.DataArray(np.full(shape, np.nan), coords=coords, dims=dims)
+        arrays[f"LHS_{label}"]    = xr.DataArray(np.full(shape, np.nan), coords=coords, dims=dims)
+        arrays[f"thresh_{label}"] = xr.DataArray(np.full(thresh_shape, np.nan), coords=thresh_coords, dims=["lat", "lon"])
 
-      # Initialize empty xarray data arrays 
-      FHD = xr.DataArray(
-       np.zeros((len(unique_years), len(latitudes), len(longitudes))),
-       coords={"year": unique_years, "lat": latitudes, "lon": longitudes},
-       dims=["year", "lat", "lon"]
-        )
-      
-      LHS = xr.DataArray(
-       np.zeros((len(unique_years), len(latitudes), len(longitudes))),
-       coords={"year": unique_years, "lat": latitudes, "lon": longitudes},
-       dims=["year", "lat", "lon"]
-        )
-    
-    # Iterate over rows of cropdata: different locations (gridcells) where <crop> is grown
-      for index, row in cropdat.iterrows():
-        lat = row['lat']
-        lon = row['lon']
+    for label in absolute_thresholds:
+        arrays[f"FHD_{label}"] = xr.DataArray(np.full(shape, np.nan), coords=coords, dims=dims)
+        arrays[f"LHS_{label}"] = xr.DataArray(np.full(shape, np.nan), coords=coords, dims=dims)
 
-        # Determine land use and select appropriate calendar dates:
-        # Integrate firr and noirr in three cases using the landuse data: if only rainfed, we pick the noirr, if only irr, we pick the firr growing season 
-        # and if it is a combination of the two we extend the growing season such that it covers both irr and firr (so all days where either irr or firr crops are grown)
-        if row['rain_area'] > 0 and row['irr_area'] == 0:
-            start_day_loc = start_day_noirr.sel(lat=lat, lon=lon).values
-            end_day_loc = end_day_noirr.sel(lat=lat, lon=lon).values
-        elif row['irr_area'] > 0 and row['rain_area'] == 0:
-            start_day_loc = start_day_firr.sel(lat=lat, lon=lon).values
-            end_day_loc = end_day_firr.sel(lat=lat, lon=lon).values
-        elif row['rain_area'] > 0 and row['irr_area'] > 0:
-            rainfed_start = start_day_firr.sel(lat=lat, lon=lon).values
-            rainfed_end = end_day_firr.sel(lat=lat, lon=lon).values
-            irrigated_start = start_day_noirr.sel(lat=lat, lon=lon).values
-            irrigated_end = end_day_noirr.sel(lat=lat, lon=lon).values
+    # Helper
+    def _fill_year(binary_series, total_days):
+        fhd_val = float(binary_series.astype(int).sum(dim="time").values) / total_days
+        lhs_val = float(xr.apply_ufunc(
+            extreme_length,
+            binary_series,
+            input_core_dims=[['time']],
+            vectorize=True,
+            dask='allowed',
+            output_dtypes=[int]
+        ).values)
+        return fhd_val, lhs_val
 
-                  # Extend growing season to include both irrigated and rainfed dates
-            start_day_loc = min(rainfed_start, irrigated_start)
-            end_day_loc = max(rainfed_end, irrigated_end)
+    # Main loop over grid cells 
+    for _, row in cropdat.iterrows():
+        lat       = row['lat']
+        lon       = row['lon']
+        rain_area = row['rain_area']
+        irr_area  = row['irr_area']
 
-        # Get climate data and day of years array for current gridcell 
+        # Select the growing season for this crop and land-use type
+        if rain_area > 0 and irr_area == 0:        # rainfed only
+            start_day = season_noirr['planting_day'].sel(lat=lat, lon=lon).values
+            end_day   = season_noirr['maturity_day'].sel(lat=lat, lon=lon).values
+
+        elif irr_area > 0 and rain_area == 0:      # irrigated only
+            start_day = season_firr['planting_day'].sel(lat=lat, lon=lon).values
+            end_day   = season_firr['maturity_day'].sel(lat=lat, lon=lon).values
+
+        elif rain_area > 0 and irr_area > 0:       # both → extend to cover both calendars
+            start_day = min(
+                season_firr['planting_day'].sel(lat=lat, lon=lon).values,
+                season_noirr['planting_day'].sel(lat=lat, lon=lon).values,
+            )
+            end_day = max(
+                season_firr['maturity_day'].sel(lat=lat, lon=lon).values,
+                season_noirr['maturity_day'].sel(lat=lat, lon=lon).values,
+            )
+
+        else:
+            continue
+
+        if np.isnan(start_day) or np.isnan(end_day):
+            continue
+
+        # Climate data for this grid cell 
         climate_loc = climate.sel(lat=lat, lon=lon)
         climate_loc['time'] = pd.to_datetime(climate_loc['time'].values)
         dayofyear = climate_loc["time"].dt.dayofyear
 
-        # Handle growing seasons within the same year
-        if start_day_loc <= end_day_loc:
-            # Masking of the growing season to get all growing season days (ones for days within growing season, zeros outside)
-            climate_loc_growing = climate_loc.where((dayofyear >= start_day_loc) & (dayofyear <= end_day_loc), drop=True)
-            # Calculate 95 percentile across all growing season days as threshold
-            temp_p95 = climate_loc_growing["tasmax"].quantile(0.95, dim = "time", skipna= True)
+        # Branch: growing season within the same calendar year
+        if start_day <= end_day:
 
-            # Loop over each year 
-            for year in unique_years:
-                current_year = year
-                # Select data for current year
-                climate_current = climate_loc.sel(time = climate_loc["time.year"]  == current_year) 
-                dayofyear_current = climate_current["time"].dt.dayofyear
-                # Select only the days within the growing season
-                climate_current_growing = climate_current.sel(time = (dayofyear_current >= start_day_loc) & (dayofyear_current <= end_day_loc))
-                total_days = end_day_loc - start_day_loc + 1  # +1 to include both start and end days
-                # Threshold the selected days with the 95 percentile value (1 if temperature is above threshold, otherwise 0)
-                temp_binary_current = (climate_current_growing["tasmax"]>= temp_p95).astype(int)
-                # Count how many ones (hot days) we have in this year for the current location
-                hotdays_current = temp_binary_current.sum(dim = "time")
-                # Add the data to the initialised xarray data array as a frequency
-                FHD.loc[current_year, lat, lon] = hotdays_current/total_days
+            climate_loc_growing = climate_loc.where(
+                (dayofyear >= start_day) & (dayofyear <= end_day), drop=True
+            )
+            total_days = end_day - start_day + 1
 
-                # Apply the extreme_length function to get this statistic and add to data array 
-                LHS.loc[current_year, lat, lon] = xr.apply_ufunc(
-                    extreme_length,
-                    temp_binary_current,
-                    input_core_dims=[['time']],
-                    vectorize=True,
-                    dask='allowed',
-                    output_dtypes=[int]
-                )
-                
-             
-        # Handle growing seasons spanning two years
-        if end_day_loc < start_day_loc: 
-           # Masking of the growing season to get all growing season days (ones for days within growing season, zeros outside)
-            climate_loc_growing = climate_loc.where((dayofyear >= start_day_loc) | (dayofyear <= end_day_loc), drop=True) # OR (|) statement instead of AND (&)
-            # Calculate 95 percentile across all growing season days as threshold
-            temp_p95 = climate_loc_growing["tasmax"].quantile(0.95, dim = "time", skipna= True) # Heavy rainfall
+            percentile_values = {
+                q: climate_loc_growing["tasmax"].quantile(q / 100, dim="time", skipna=True)
+                for q in percentile_thresholds
+            }
+
+            for q in percentile_thresholds:
+                arrays[f"thresh_p{q:02d}"].loc[lat, lon] = float(percentile_values[q].values)
 
             for year in unique_years:
-                current_year = year +1
-                if year == 2019: # Last year is not a comple growing season
-                    FHD.loc[year, lat, lon] = 0
-                    LHS.loc[year, lat, lon] = 0
-                else: 
-                    # Get current climate data 
-                    climate_current = climate_loc.sel(time = climate_loc["time.year"]  == current_year)  # We discard the first year because incomplete growing season
-                    # Get climate data from previous year
-                    climate_previous = climate_loc.sel(time = climate_loc["time.year"]  == year) 
-                    dayofyear_current = climate_current["time"].dt.dayofyear
-                    dayofyear_previous = climate_previous["time"].dt.dayofyear
-                    total_days = (365 - start_day_loc +1) + end_day_loc # +1 to include the start day
-                    # growing season consists of end of pevious year and beginning of current year: keep two split in previous and current growing season days
-                    climate_current_growing = climate_current.sel(time = dayofyear_current <= end_day_loc)
-                    climate_previous_growing = climate_previous.sel(time = dayofyear_previous >= start_day_loc)
-                    # Threshold the selected days with the 95 percentile value (1 if tasmax is above threshold, otherwise 0)
-                    temp_binary_current = (climate_current_growing["tasmax"]>= temp_p95)
-                    temp_binary_previous = (climate_previous_growing["tasmax"] >= temp_p95)
-                    hotdays_current = temp_binary_current.astype(int).sum(dim = "time")
-                    hotdays_previous = temp_binary_previous.astype(int).sum(dim = "time")
-                    # Calculate frequency by combining both the hot days from the end of previous year and beginning of next year within growing season. Add to xarray data array
-                    FHD.loc[current_year, lat, lon] = (hotdays_current + hotdays_previous)/total_days
+                climate_yr = climate_loc.sel(time=climate_loc["time.year"] == year)
+                doy_yr     = climate_yr["time"].dt.dayofyear
+                tasmax_gs  = climate_yr.sel(
+                    time=(doy_yr >= start_day) & (doy_yr <= end_day)
+                )["tasmax"]
 
-                    # Apply the extreme_length function to get longest hot spell 
-                    LHS.loc[current_year, lat, lon] = xr.apply_ufunc(
+                for q in percentile_thresholds:
+                    label  = f"p{q:02d}"
+                    binary = (tasmax_gs >= percentile_values[q]).astype(int)
+                    fhd, lhs = _fill_year(binary, total_days)
+                    arrays[f"FHD_{label}"].loc[year, lat, lon] = fhd
+                    arrays[f"LHS_{label}"].loc[year, lat, lon] = lhs
+
+                for label, thresh_C in absolute_thresholds.items():
+                    binary = (tasmax_gs > thresh_C + 273.15).astype(int)
+                    fhd, lhs = _fill_year(binary, total_days)
+                    arrays[f"FHD_{label}"].loc[year, lat, lon] = fhd
+                    arrays[f"LHS_{label}"].loc[year, lat, lon] = lhs
+
+        # Branch: growing season spanning two calendar years
+        if end_day < start_day:
+
+            climate_loc_growing = climate_loc.where(
+                (dayofyear >= start_day) | (dayofyear <= end_day), drop=True
+            )
+            total_days = (365 - start_day + 1) + end_day
+
+            percentile_values = {
+                q: climate_loc_growing["tasmax"].quantile(q / 100, dim="time", skipna=True)
+                for q in percentile_thresholds
+            }
+
+            for q in percentile_thresholds:
+                arrays[f"thresh_p{q:02d}"].loc[lat, lon] = float(percentile_values[q].values)
+
+            for year in unique_years:
+                current_year = year + 1
+
+                if year == 2019:  # incomplete final growing season
+                    for q in percentile_thresholds:
+                        label = f"p{q:02d}"
+                        arrays[f"FHD_{label}"].loc[year, lat, lon] = 0
+                        arrays[f"LHS_{label}"].loc[year, lat, lon] = 0
+                    for label in absolute_thresholds:
+                        arrays[f"FHD_{label}"].loc[year, lat, lon] = 0
+                        arrays[f"LHS_{label}"].loc[year, lat, lon] = 0
+                    continue
+
+                climate_curr = climate_loc.sel(time=climate_loc["time.year"] == current_year)
+                climate_prev = climate_loc.sel(time=climate_loc["time.year"] == year)
+                doy_curr     = climate_curr["time"].dt.dayofyear
+                doy_prev     = climate_prev["time"].dt.dayofyear
+
+                tasmax_curr = climate_curr.sel(time=doy_curr <= end_day)["tasmax"]
+                tasmax_prev = climate_prev.sel(time=doy_prev >= start_day)["tasmax"]
+
+                for q in percentile_thresholds:
+                    label    = f"p{q:02d}"
+                    thresh   = percentile_values[q]
+                    bin_curr = (tasmax_curr >= thresh).astype(int)
+                    bin_prev = (tasmax_prev >= thresh).astype(int)
+                    fhd_val  = (bin_curr.sum(dim="time") + bin_prev.sum(dim="time")).values / total_days
+                    lhs_val  = xr.apply_ufunc(
                         extreme_length,
-                        xr.concat([temp_binary_previous, temp_binary_current], dim='time'),
+                        xr.concat([bin_prev, bin_curr], dim='time'),
                         input_core_dims=[['time']],
                         vectorize=True,
                         dask='allowed',
                         output_dtypes=[int]
-                    )
+                    ).values
+                    arrays[f"FHD_{label}"].loc[current_year, lat, lon] = float(fhd_val)
+                    arrays[f"LHS_{label}"].loc[current_year, lat, lon] = float(lhs_val)
 
-      return FHD, LHS
+                for label, thresh_C in absolute_thresholds.items():
+                    bin_curr = (tasmax_curr > thresh_C + 273.15).astype(int)
+                    bin_prev = (tasmax_prev > thresh_C + 273.15).astype(int)
+                    fhd_val  = (bin_curr.sum(dim="time") + bin_prev.sum(dim="time")).values / total_days
+                    lhs_val  = xr.apply_ufunc(
+                        extreme_length,
+                        xr.concat([bin_prev, bin_curr], dim='time'),
+                        input_core_dims=[['time']],
+                        vectorize=True,
+                        dask='allowed',
+                        output_dtypes=[int]
+                    ).values
+                    arrays[f"FHD_{label}"].loc[current_year, lat, lon] = float(fhd_val)
+                    arrays[f"LHS_{label}"].loc[current_year, lat, lon] = float(lhs_val)
+
+    # Assemble Dataset with metadata
+    data_vars = {}
+
+    for q in percentile_thresholds:
+        label = f"p{q:02d}"
+        data_vars[f"FHD_{label}"] = arrays[f"FHD_{label}"]
+        data_vars[f"FHD_{label}"].attrs = {
+            "long_name": f"Frequency of Hot Days (p{q:02d} threshold)",
+            "description": (
+                f"Fraction of {crop} growing-season days with tasmax ≥ {q}th percentile "
+                f"of the local growing-season climatology"
+            ),
+            "units": "fraction",
+        }
+        data_vars[f"LHS_{label}"] = arrays[f"LHS_{label}"]
+        data_vars[f"LHS_{label}"].attrs = {
+            "long_name": f"Longest Hot Spell (p{q:02d} threshold)",
+            "description": (
+                f"Maximum consecutive {crop} growing-season days with tasmax ≥ {q}th percentile "
+                f"of the local growing-season climatology"
+            ),
+            "units": "days",
+        }
+        data_vars[f"thresh_{label}"] = arrays[f"thresh_{label}"]
+        data_vars[f"thresh_{label}"].attrs = {
+            "long_name": f"Hot threshold temperature (p{q:02d})",
+            "description": (
+                f"{q}th percentile of tasmax across all {crop} growing-season days "
+                f"in the full climatology, used as the heat extreme threshold at each grid cell"
+            ),
+            "units": "K",
+        }
+
+    for label, thresh_C in absolute_thresholds.items():
+        data_vars[f"FHD_{label}"] = arrays[f"FHD_{label}"]
+        data_vars[f"FHD_{label}"].attrs = {
+            "long_name": f"Frequency of Hot Days ({label} / {thresh_C:.0f}°C threshold)",
+            "description": (
+                f"Fraction of {crop} growing-season days with tasmax > {thresh_C}°C"
+            ),
+            "units": "fraction",
+            "threshold_C": thresh_C,
+        }
+        data_vars[f"LHS_{label}"] = arrays[f"LHS_{label}"]
+        data_vars[f"LHS_{label}"].attrs = {
+            "long_name": f"Longest Hot Spell ({label} / {thresh_C:.0f}°C threshold)",
+            "description": (
+                f"Maximum consecutive {crop} growing-season days with tasmax > {thresh_C}°C"
+            ),
+            "units": "days",
+            "threshold_C": thresh_C,
+        }
+
+    ds = xr.Dataset(data_vars)
+    ds.attrs = {
+        "title": f"Hot extreme climate indicators — {crop} growing season",
+        "crop": crop,
+        "source": "GSWP3-W5E5 obsclim tasmax, GGCMI Phase 3 crop calendars",
+        "percentile_thresholds": str(percentile_thresholds),
+        "absolute_thresholds_C": str(absolute_thresholds),
+        "created": pd.Timestamp.now().isoformat(),
+    }
+
+    return ds
 
 
-## 5. Perform main function 
-FDD, LHS = season_stat(temp_days, season_firr, season_noirr, cropdat_unique)
+## 6. Loop over all crops, run and save
 
-## 6. Save new datasets as netcdf files
-FDD.to_netcdf(repo_path / f"GGCMI-validation/data/processed/extremes_indicators/crop_specific/FDD_{crop}.nc")
-LHS.to_netcdf(repo_path / f"GGCMI-validation/data/processed/extremes_indicators/crop_specific/LHS_{crop}.nc")
+out_dir = repo_path / "GGCMI-validation/data/processed/extremes_indicators/crop_specific"
+out_dir.mkdir(parents=True, exist_ok=True)
+
+
+# which is the loop variable below.
+for crop in crop_names:
+    print(f"Processing hot indicators for crop: {crop}")
+
+    # Crop data for the target crop only
+    cropdat = rdata[rdata_key_map[crop]]
+
+    # Keep only grid cells where this crop is actually grown (rain or irr area > 0)
+    cropdat = cropdat[(cropdat["rain_area"] > 0) | (cropdat["irr_area"] > 0)].copy()
+    cropdat = cropdat.drop_duplicates(subset=["lon", "lat"])
+
+    print(f"  Grid cells with {crop} area: {len(cropdat)}")
+
+    # Growing season calendars for the target crop only
+    season_firr  = xr.open_dataset(cal_base / f"ggcmi-crop-calendar-phase3_2015soc_{crop}_firr_landonly.nc")
+    season_noirr = xr.open_dataset(cal_base / f"ggcmi-crop-calendar-phase3_2015soc_{crop}_noirr_landonly.nc")
+
+    ds_hot = season_stat(temp_days, season_firr, season_noirr, cropdat)
+
+    out_path = out_dir / f"hot_indicators_{crop}.nc"
+    ds_hot.to_netcdf(out_path)
+    print(f"Saved: {out_path}")
+
+    season_firr.close()
+    season_noirr.close()
