@@ -6,7 +6,6 @@ format:
     code-summary: "Show the code"
     toc: true
     self-contained: true
-editor: visual
 ---
 
 ::: {.callout-note title="Overview" icon="false"}
@@ -48,7 +47,7 @@ Change to the correct location of the repository on your computer:
 
 ```{r}
 # Base path to the repository
-repo_path <- "/Users/username/Documents/my-project"  # Change this accordingly
+repo_path <- here::here()
 
 # Set working directory to the repo path (optional)
 # setwd(repo_path)
@@ -60,7 +59,7 @@ First of all we need to assign for each gridcell a country ID indicating to whic
 
 ```{r}
 # Construct the full path to the NetCDF file
-country_mask_path <- file.path(repo_path, "GGCMI-validation", "data", "raw", "other", "countrymasks.nc")
+country_mask_path <- file.path(repo_path, "data", "raw", "other", "countrymasks.nc")
 
 # Open the NetCDF file
 ctr.bin <- ncdf4::nc_open(filename = country_mask_path)
@@ -170,7 +169,7 @@ Let´s save these 2 grids for later purpose.
 
 ```{r}
 # Construct paths relative to the repository
-output_dir <- file.path(repo_path, "GGCMI-validation", "data", "processed", "other")
+output_dir <- file.path(repo_path, "data", "processed", "other")
 
 # Save the lonlat and tgrid objects
 save(lonlat, file = file.path(output_dir, "lonlat_ISIMIP_ctrs.RData"))
@@ -185,8 +184,9 @@ In the next step we calculate for each gridcell the crop area for the different 
 # Construct the path to the LU (land use) NetCDF file
 LU_path <- file.path(
   repo_path,
-  "GGCMI-validation", "Data", "Raw", "other",
-  "landuse-15crops_2015soc_annual_1901_2021.nc")
+  "data", "raw", "other",
+  "landuse-15crops_2015soc_annual_1901_2021_landonly.nc"
+)
 
 # Open the NetCDF file
 LU <- ncdf4::nc_open(filename = LU_path)
@@ -239,7 +239,7 @@ for (var in vars){
 }
 
 # Save the data in the repository
-save(LU_list,file.path(output_dir, "LU_list.RData"))
+save(LU_list, file = file.path(output_dir, "LU_list.RData"))
 ```
 
 # Creating model information tables
@@ -250,7 +250,7 @@ First we collect the names of the nc files in all the crop folders. Note that we
 # Define the base directory 
 isimip_base <- file.path(
   repo_path,
-  "GGCMI-validation", "data", "processed", "GGCMI_calendar_adjusted"
+  "data", "processed", "GGCMI_calendar_adjusted"
 )
 
 # List NetCDF files for each crop type
@@ -333,7 +333,7 @@ for (crop in crops) {  # Loop through each crop
     # Extract yield + calculate production for irrigated
     nc_file_path_irr <- file.path(
           repo_path,
-          "ISIMIP3a validation", "data", "processed", "GGCMI_calendar_adjusted",
+          "data", "processed", "GGCMI_calendar_adjusted",
           crop,
           current_outputs[x][1]   # Get the irrigated file
           )
@@ -367,7 +367,7 @@ for (crop in crops) {  # Loop through each crop
     # Extract yield + calculate production for rainfed
     nc_file_path_noirr <- file.path(
           repo_path,
-          "ISIMIP3a validation", "data", "processed", "GGCMI_calendar_adjusted",
+          "data", "processed", "GGCMI_calendar_adjusted",
           crop,
           current_outputs[x][2]   # Get the rainfed file
           )
@@ -431,7 +431,7 @@ for (crop in crops) {  # Loop through each crop
     # Construct the full path to the output file
     save_path <- file.path(
           repo_path,
-          "GGCMI-validation", "data", "processed", "GGCMI_dataframes",
+          "data", "processed", "GGCMI_dataframes",
           crop,
           paste0(model, "_", crop, ".RData")
            )

@@ -9,7 +9,7 @@ library(testthat)
 
 # settings
 
-# base_path <- "/GGCMI-validation/data/raw/GGCMI_yields/" # Change to where the repository was stored
+base_path <- here::here("data", "raw", "GGCMI_yields")
 modelnames <- c(
   "ACEA", "CROVER", "CYGMA1p74", "Daycent", "EPIC-IIASA", "DSSAT-Pythia", 
   "ISAM", "LDNDC", "LPJ-GUESS", "LPJmL", "PEPIC", "pDSSAT", 
@@ -26,15 +26,15 @@ vars <- c("yield", "biom", "cnyield", "plantday", "plantyear", "harvyear", "anth
       "transp", "evap", "soilevap", "runoff", "rootm", "tnrup", "tnrin", "tnrloss",
       "n2oemis", "n2emis", "nleach", "tcemis", "ch4emis", "maturitystatus",
       "maturityindex")[1]
-calenadar_path <- "/GGCMI-validation/data/raw/other/"  # change to where the repo is stored locally
+calenadar_path <- here::here("data", "raw", "other")
 phases <- c("phase3a", "phase3b")
 
 soc_scenario1 <- soc_scenario <- socs[2]
 sens_scenario <- sens[1]
 bias_adjustment <- "w5e5"
 phase <- phases[1]
-region <- "global"
-timestep <- "annual"
+region <- "landonly"
+timestep <- "annual-gs"
 
 if (phase == phases[1]) {
   gcms <- c("gswp3-w5e5")
@@ -94,12 +94,15 @@ main <- function(modelname, climate_forcing, bias_adjustment, climate_scenario,
     "-", irrigation, "_", region, "_", timestep, "_", start_year, "_", end_year, ".nc"))
   
   # check if the file exists
-  if (!file.exists(paste(base_path, modelname, phase,
-    #if(phase == phases[2]) {paste0(tolower(climate_forcing), "-", bias_adjustment) } else {climate_forcing}, 
-    tolower(climate_forcing),
-    climate_scenario, crop, file_name, sep = "/"))) {
-    print(paste("File does not exist:", paste(base_path, modelname, phase, tolower(climate_forcing),
-      climate_scenario, crop, file_name, sep = "/")))  
+  if(
+    !file.exists(paste(base_path, crop, file_name, sep = "/"))
+  ){
+    print(
+      paste(
+        "File does not exist:", 
+        paste(base_path, crop, file_name, sep = "/")
+      )
+    )  
     return()
   }
   if(use_hyear){
@@ -109,23 +112,30 @@ main <- function(modelname, climate_forcing, bias_adjustment, climate_scenario,
       climate_scenario, "_", soc_scenario, "_", sens_scenario, "_harvyear-", crop,
       "-", irrigation, "_", region, "_", timestep, "_", start_year, "_", end_year, ".nc"))
     # open the netcdf file for variable `harvyear` 
-    nc_hy <- nc_open(paste(base_path, modelname, phase, tolower(climate_forcing),
-      climate_scenario, crop, file_name_hy, sep = "/"))
+    nc_hy <- nc_open(
+      paste(base_path, crop, file_name_hy, sep = "/")
+    )
     # get the data from the netcdf file for variable `harvyear`
     harvyear <-ncvar_get(nc_hy, varid = paste("harvyear", crop, irrigation, sep = "-"))
     # close the netcdf files  
     nc_close(nc_hy)
   } else {
     print(paste("Using crop calendar for", modelname, "for", crop, "and", irrigation))
-    file_name_calendar <- paste0(calenadar_path, "/", crop, if(irrigation == "firr"){"_ir"} else {"_rf"}, "_ggcmi_crop_calendar_phase3_v1.01.nc4")
+    file_name_calendar <- file.path(
+      calenadar_path, 
+      paste(
+        "ggcmi-crop-calendar-phase3",
+        soc_scenario, crop, irrigation, paste0(region, ".nc"),
+        sep = "_"
+      )
+    )
     nc_calendar <- nc_open(file_name_calendar)
     planting_day <- ncvar_get(nc_calendar, varid = "planting_day")
     maturity_day <- ncvar_get(nc_calendar, varid = "maturity_day")
     nc_close(nc_calendar)
   }
   # open the netcdf file and read metadata on time and space dimensions
-  nc <- nc_open(paste(base_path, modelname, phase, tolower(climate_forcing),
-    climate_scenario, crop, file_name, sep = "/"))
+  nc <- nc_open(paste(base_path, crop, file_name, sep = "/"))
   ntimesteps <- nc$dim$time$len
   # extract reference year from time dimension unit string "growing seasons since 1661-01-01, 00:00:00"
   ref_year <- strsplit(nc$dim$time$units, "since ")[[1]][2]
@@ -172,7 +182,7 @@ main <- function(modelname, climate_forcing, bias_adjustment, climate_scenario,
   # create new file name for the adjusted netcdf file
   file_name_adj <- gsub(".nc", "_calendar-year-adjusted.nc", file_name)
   # create new directory for the adjusted netcdf file if it does not exist
-  dir_adj <- paste("GGCMI-validation/data/processed/GGCMI_calendar_adjusted", crop, sep = "/") #Adjust for where repo is stored
+  dir_adj <- here::here("data", "processed", "GGCMI_calendar_adjusted", crop)
    # get units, long_name and missval from the original netcdf file
   var_atts <- ncatt_get(nc, varid = paste(variable, crop, irrigation, sep = "-"))
   # get lon dimension attributes
@@ -249,29 +259,6 @@ main <- function(modelname, climate_forcing, bias_adjustment, climate_scenario,
   
 }
 
-# for testing
-if(FALSE){
-  modelname <- modelnames[8]  
-  modelnames <- modelnames[8]  
-  climate_forcing <- gcms[1]
-  climate_scenario <- rcsps[2]
-  variable <- vars[1]
-  crop <- crops[1]
-  irrigation <- irrigs[1]
-}
-
-# Get the command line arguments
-args <- commandArgs(trailingOnly = TRUE)
-
-# Check if there is at least one argument
-if (length(args) == 0) {
-  stop("At least one argument must be supplied (modelname).")
-}
-
-# Assign the first argument to modelname to shortcut that loop
-modelnames <- args[1]
-
-
 # loop over modelnames
 # loop over gcms
 # loop over rcsps
@@ -320,11 +307,19 @@ for(climate_scenario in rcsps){
           for(irrigation in irrigs){
             # use harvyear if file exists, otherwise fall back to crop calendar
             use_hyear <- TRUE
-            filename <- paste(base_path, modelname, phase, tolower(climate_forcing),
-              climate_scenario, crop, tolower(paste0(modelname, "_", climate_forcing, "_",
-              if(phase == phases[2]) {paste0(bias_adjustment, "_")} else {""},
-              climate_scenario, "_", soc_scenario, "_", sens_scenario, "_harvyear-", crop,
-              "-", irrigation, "_", region, "_", timestep, "_", start_year, "_", end_year, ".nc")), sep = "/")
+            filename <- paste(
+              base_path, crop,
+              tolower(
+                paste0(
+                  modelname, "_", climate_forcing, "_",
+                  if(phase == phases[2]) {paste0(bias_adjustment, "_")} else {""},
+                  climate_scenario, "_", soc_scenario, "_", sens_scenario, 
+                  "_harvyear-", crop, "-", irrigation, "_", region, "_", timestep, 
+                  "_", start_year, "_", end_year, ".nc"
+                )
+              ),
+              sep = "/"
+            )
             if (!file.exists(filename)) {
               print(paste("File does not exist:", filename, "skipping", modelname))  
               # if file doesn't exist, use crop calendar
