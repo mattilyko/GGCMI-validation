@@ -8,3 +8,5 @@
 *.Ruserdata
 *.nc
 *.nc4
+.Rproj.user
+*.sh

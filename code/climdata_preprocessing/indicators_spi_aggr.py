@@ -506,23 +506,23 @@ def season_stat_spi(climate, season_firr_dict, season_noirr_dict, cropdat, n_min
 
 # Script entry point
 
-repo_path = Path("C:/Users/DeMae003/OneDrive - Universiteit Utrecht/Documents/GGCMI/")
+repo_path = Path(__file__).resolve().parent.parent.parent
 
 ## 1. Precipitation data (convert kg m-2 s-1 → mm day-1) 
-precip1 = xr.open_dataset(repo_path / "GGCMI-validation/data/raw/climdata/gswp3-w5e5_obsclim_pr_global_daily_1981_1990.nc", engine='netcdf4')
-precip2 = xr.open_dataset(repo_path / "GGCMI-validation/data/raw/climdata/gswp3-w5e5_obsclim_pr_global_daily_1991_2000.nc", engine='netcdf4')
-precip3 = xr.open_dataset(repo_path / "GGCMI-validation/data/raw/climdata/gswp3-w5e5_obsclim_pr_global_daily_2001_2010.nc", engine='netcdf4')
-precip4 = xr.open_dataset(repo_path / "GGCMI-validation/data/raw/climdata/gswp3-w5e5_obsclim_pr_global_daily_2011_2019.nc", engine='netcdf4')
+precip1 = xr.open_dataset(repo_path / "data/raw/climdata/gswp3-w5e5_obsclim_pr_landonly_daily_1981_1990.nc", engine='netcdf4')
+precip2 = xr.open_dataset(repo_path / "data/raw/climdata/gswp3-w5e5_obsclim_pr_landonly_daily_1991_2000.nc", engine='netcdf4')
+precip3 = xr.open_dataset(repo_path / "data/raw/climdata/gswp3-w5e5_obsclim_pr_landonly_daily_2001_2010.nc", engine='netcdf4')
+precip4 = xr.open_dataset(repo_path / "data/raw/climdata/gswp3-w5e5_obsclim_pr_landonly_daily_2011_2019.nc", engine='netcdf4')
 precip_days = xr.concat([precip1, precip2, precip3, precip4], dim='time')
 precip_days["pr"] = precip_days["pr"] * 86400  # kg m-2 s-1 → mm day-1
 
 ## 2. Crop data
-cropdat_swh = pyreadr.read_r(repo_path / "GGCMI-validation/data/processed/integrated_cropdata/crop_specific_data.RData")["dat_swh"]
-cropdat_wwh = pyreadr.read_r(repo_path / "GGCMI-validation/data/processed/integrated_cropdata/crop_specific_data.RData")["dat_wwh"]
-cropdat_soy = pyreadr.read_r(repo_path / "GGCMI-validation/data/processed/integrated_cropdata/crop_specific_data.RData")["dat_soy"]
-cropdat_ri2 = pyreadr.read_r(repo_path / "GGCMI-validation/data/processed/integrated_cropdata/crop_specific_data.RData")["dat_ri2"]
-cropdat_ri1 = pyreadr.read_r(repo_path / "GGCMI-validation/data/processed/integrated_cropdata/crop_specific_data.RData")["dat_ri1"]
-cropdat_mai = pyreadr.read_r(repo_path / "GGCMI-validation/data/processed/integrated_cropdata/crop_specific_data.RData")["dat_mai"]
+cropdat_swh = pyreadr.read_r(repo_path / "data/processed/integrated_cropdata/crop_specific_data.RData")["dat_swh"]
+cropdat_wwh = pyreadr.read_r(repo_path / "data/processed/integrated_cropdata/crop_specific_data.RData")["dat_wwh"]
+cropdat_soy = pyreadr.read_r(repo_path / "data/processed/integrated_cropdata/crop_specific_data.RData")["dat_soy"]
+cropdat_ri2 = pyreadr.read_r(repo_path / "data/processed/integrated_cropdata/crop_specific_data.RData")["dat_ri2"]
+cropdat_ri1 = pyreadr.read_r(repo_path / "data/processed/integrated_cropdata/crop_specific_data.RData")["dat_ri1"]
+cropdat_mai = pyreadr.read_r(repo_path / "data/processed/integrated_cropdata/crop_specific_data.RData")["dat_mai"]
 
 cropdat_swh['crop'] = 'swh'
 cropdat_wwh['crop'] = 'wwh'
@@ -545,11 +545,11 @@ cropdat_unique = reshaped_data.drop_duplicates(subset=['lon', 'lat'])
 ## 3. Growing season calendars
 crop_names = ['mai', 'ri1', 'ri2', 'soy', 'swh', 'wwh']
 season_firr_list = [
-    xr.open_dataset(repo_path / f"GGCMI-validation/data/raw/other/ggcmi-crop-calendar-phase3_2015soc_{c}_firr_landonly.nc")
+    xr.open_dataset(repo_path / f"data/raw/other/ggcmi-crop-calendar-phase3_2015soc_{c}_firr_landonly.nc")
     for c in crop_names
 ]
 season_noirr_list = [
-    xr.open_dataset(repo_path / f"GGCMI-validation/data/raw/other/ggcmi-crop-calendar-phase3_2015soc_{c}_noirr_landonly.nc")
+    xr.open_dataset(repo_path / f"data/raw/other/ggcmi-crop-calendar-phase3_2015soc_{c}_noirr_landonly.nc")
     for c in crop_names
 ]
 season_firr_dict  = {crop: season for crop, season in zip(crop_names, season_firr_list)}
@@ -559,6 +559,6 @@ season_noirr_dict = {crop: season for crop, season in zip(crop_names, season_noi
 ds_spi = season_stat_spi(precip_days, season_firr_dict, season_noirr_dict, cropdat_unique)
 
 ## 5. Save
-out_dir = repo_path / "GGCMI-validation/data/processed/extremes_indicators/crop_aggregated"
+out_dir = repo_path / "data/processed/extremes_indicators/crop_aggregated"
 ds_spi.to_netcdf(out_dir / "SPI_aggr.nc")
 print("Saved SPI_aggr.nc")

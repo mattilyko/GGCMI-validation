@@ -27,7 +27,7 @@ from pathlib import Path
 
 ##  Paths and thresholds 
 
-repo_path = Path("C:/Users/DeMae003/OneDrive - Universiteit Utrecht/Documents/GGCMI/")
+repo_path = Path(__file__).resolve().parent.parent.parent
 
 crop_names = ['mai', 'ri1', 'ri2', 'soy', 'swh', 'wwh']
 
@@ -41,10 +41,10 @@ ABSOLUTE_THRESHOLDS = {
 
 ## 1. Load temperature data
 
-temp1 = xr.open_dataset(repo_path / "GGCMI-validation/data/raw/climdata/gswp3-w5e5_obsclim_tasmin_global_daily_1981_1990.nc", engine='netcdf4')
-temp2 = xr.open_dataset(repo_path / "GGCMI-validation/data/raw/climdata/gswp3-w5e5_obsclim_tasmin_global_daily_1991_2000.nc", engine='netcdf4')
-temp3 = xr.open_dataset(repo_path / "GGCMI-validation/data/raw/climdata/gswp3-w5e5_obsclim_tasmin_global_daily_2001_2010.nc", engine='netcdf4')
-temp4 = xr.open_dataset(repo_path / "GGCMI-validation/data/raw/climdata/gswp3-w5e5_obsclim_tasmin_global_daily_2011_2019.nc", engine='netcdf4')
+temp1 = xr.open_dataset(repo_path / "data/raw/climdata/gswp3-w5e5_obsclim_tasmin_landonly_daily_1981_1990.nc", engine='netcdf4')
+temp2 = xr.open_dataset(repo_path / "data/raw/climdata/gswp3-w5e5_obsclim_tasmin_landonly_daily_1991_2000.nc", engine='netcdf4')
+temp3 = xr.open_dataset(repo_path / "data/raw/climdata/gswp3-w5e5_obsclim_tasmin_landonly_daily_2001_2010.nc", engine='netcdf4')
+temp4 = xr.open_dataset(repo_path / "data/raw/climdata/gswp3-w5e5_obsclim_tasmin_landonly_daily_2011_2019.nc", engine='netcdf4')
 temp_days = xr.concat([temp1, temp2, temp3, temp4], dim='time')
 
 ## 2. Crop data (read the RData file once; select per crop in the loop)
@@ -59,10 +59,10 @@ rdata_key_map = {
     "mai": "dat_mai",
 }
 
-rdata_path = repo_path / "GGCMI-validation/data/processed/integrated_cropdata/crop_specific_data.RData"
+rdata_path = repo_path / "data/processed/integrated_cropdata/crop_specific_data.RData"
 rdata = pyreadr.read_r(rdata_path)
 
-cal_base = repo_path / "GGCMI-validation/data/raw/other"
+cal_base = repo_path / "data/raw/other"
 
 ## 4. Helper function — longest consecutive sequence of 1s
 
@@ -342,7 +342,7 @@ def season_stat(climate, season_firr, season_noirr, cropdat,
 
 ## 6. Loop over all crops, run and save
 
-out_dir = repo_path / "GGCMI-validation/data/processed/extremes_indicators/crop_specific"
+out_dir = repo_path / "data/processed/extremes_indicators/crop_specific"
 out_dir.mkdir(parents=True, exist_ok=True)
 
 # which is the loop variable below.

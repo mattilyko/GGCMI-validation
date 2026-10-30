@@ -7,7 +7,7 @@ format:
     code-summary: "Show the code"
     embed-resources: true
     self-contained-math: true
-editor: visual
+editor: source
 ---
 
 ::: {.callout-note title="Overview" icon="false"}
@@ -31,7 +31,7 @@ The following data files are needed:
 
 Output:
 
-per crop (also for crop-aggregated data) a RDS file will be stored which will be used for the figures and further statistical analysis. We additionally also keep the data before filtering for extremes to analyze the general performance as well as a RDS file. The files are stored at data/processed/figure_ready_data. 
+per crop (also for crop-aggregated data) a RDS file will be stored which will be used for the figures and further statistical analysis. We additionally also keep the data before filtering for extremes to analyze the general performance as well as a RDS file. The files are stored at data/processed/figure_ready_data.
 :::
 
 ## Filtering

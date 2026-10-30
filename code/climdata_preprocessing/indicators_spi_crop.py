@@ -486,14 +486,14 @@ def season_stat_spi(climate, season_firr, season_noirr, cropdat, crop, n_min=10)
 
 # Script entry point
 
-repo_path = Path("C:/Users/DeMae003/OneDrive - Universiteit Utrecht/Documents/GGCMI/")
+repo_path = Path(__file__).resolve().parent.parent.parent
 
 ## 1. Precipitation data (convert kg m-2 s-1 → mm day-1)
 
-precip1 = xr.open_dataset(repo_path / "GGCMI-validation/data/raw/climdata/gswp3-w5e5_obsclim_pr_global_daily_1981_1990.nc", engine='netcdf4')
-precip2 = xr.open_dataset(repo_path / "GGCMI-validation/data/raw/climdata/gswp3-w5e5_obsclim_pr_global_daily_1991_2000.nc", engine='netcdf4')
-precip3 = xr.open_dataset(repo_path / "GGCMI-validation/data/raw/climdata/gswp3-w5e5_obsclim_pr_global_daily_2001_2010.nc", engine='netcdf4')
-precip4 = xr.open_dataset(repo_path / "GGCMI-validation/data/raw/climdata/gswp3-w5e5_obsclim_pr_global_daily_2011_2019.nc", engine='netcdf4')
+precip1 = xr.open_dataset(repo_path / "data/raw/climdata/gswp3-w5e5_obsclim_pr_landonly_daily_1981_1990.nc", engine='netcdf4')
+precip2 = xr.open_dataset(repo_path / "data/raw/climdata/gswp3-w5e5_obsclim_pr_landonly_daily_1991_2000.nc", engine='netcdf4')
+precip3 = xr.open_dataset(repo_path / "data/raw/climdata/gswp3-w5e5_obsclim_pr_landonly_global_daily_2001_2010.nc", engine='netcdf4')
+precip4 = xr.open_dataset(repo_path / "data/raw/climdata/gswp3-w5e5_obsclim_pr_landonly_daily_2011_2019.nc", engine='netcdf4')
 precip_days = xr.concat([precip1, precip2, precip3, precip4], dim='time')
 precip_days["pr"] = precip_days["pr"] * 86400  # kg m-2 s-1 → mm day-1
 
@@ -508,11 +508,11 @@ rdata_key_map = {
     "mai": "dat_mai",
 }
 
-rdata_path = repo_path / "GGCMI-validation/data/processed/integrated_cropdata/crop_specific_data.RData"
+rdata_path = repo_path / "data/processed/integrated_cropdata/crop_specific_data.RData"
 rdata = pyreadr.read_r(rdata_path)
 
-cal_base = repo_path / "GGCMI-validation/data/raw/other"
-out_dir = repo_path / "GGCMI-validation/data/processed/extremes_indicators/crop_specific"
+cal_base = repo_path / "data/raw/other"
+out_dir = repo_path / "data/processed/extremes_indicators/crop_specific"
 out_dir.mkdir(parents=True, exist_ok=True)
 
 ## 3. Loop over all crops
