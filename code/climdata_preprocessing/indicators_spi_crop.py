@@ -492,7 +492,7 @@ repo_path = Path(__file__).resolve().parent.parent.parent
 
 precip1 = xr.open_dataset(repo_path / "data/raw/climdata/gswp3-w5e5_obsclim_pr_landonly_daily_1981_1990.nc", engine='netcdf4')
 precip2 = xr.open_dataset(repo_path / "data/raw/climdata/gswp3-w5e5_obsclim_pr_landonly_daily_1991_2000.nc", engine='netcdf4')
-precip3 = xr.open_dataset(repo_path / "data/raw/climdata/gswp3-w5e5_obsclim_pr_landonly_global_daily_2001_2010.nc", engine='netcdf4')
+precip3 = xr.open_dataset(repo_path / "data/raw/climdata/gswp3-w5e5_obsclim_pr_landonly_daily_2001_2010.nc", engine='netcdf4')
 precip4 = xr.open_dataset(repo_path / "data/raw/climdata/gswp3-w5e5_obsclim_pr_landonly_daily_2011_2019.nc", engine='netcdf4')
 precip_days = xr.concat([precip1, precip2, precip3, precip4], dim='time')
 precip_days["pr"] = precip_days["pr"] * 86400  # kg m-2 s-1 → mm day-1
