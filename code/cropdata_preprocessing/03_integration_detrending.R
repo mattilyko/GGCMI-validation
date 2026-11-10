@@ -20,13 +20,12 @@ detrend_yield <- function(yield, year){
   dat <- tibble("log_yield" = log(yield), "year" = year)
   fitted <- predict(lm(log_yield ~ log(year), dat))
   # prevent non-positive trend values
-  fitted <- pmax(fitted, 0.001)
+  fitted <- pmax(exp(fitted), 0.001)
   return(fitted)
 }
 
 crops <- c("mai", "ri1", "ri2", "soy", "swh", "wwh")
 models <- c("acea", "ldndc", "lpjml", "pdssat", "pepic", "promet", "simplace-lintul5", "isam", "epic-iiasa", "cygma1p74", "crover", "dssat-pythia", "lpj-guess")
-degree <- 2
 
 for (crop in crops) {  # Loop through each crop
   
@@ -159,7 +158,7 @@ for (crop in crops) {  # Loop through each crop
     mutate(year = as.numeric(year)) %>%
     filter(yield != 0 ) %>% 
     group_by(lon, lat) %>%
-    na.omit() %>% 
+    drop_na %>% 
     filter(n() > 4) %>%   # Filter out groups with fewer than 5 non-zero observations
     mutate(
       fitted = detrend_yield(yield, year),
@@ -173,7 +172,7 @@ for (crop in crops) {  # Loop through each crop
            tot_yld = (irr * irr_area + rain * rain_area) / (irr_area + rain_area)) %>% #Integrate rainfed and irrigated simulations using the corresponding crop areas from the land-use data
     filter(tot_yld != 0 ) %>% 
     group_by(lon, lat, model) %>%
-    na.omit() %>% 
+    drop_na() %>% 
     filter(n() > 4) %>%   # Filter out groups with fewer than 5 non-zero observations
     mutate(
       fitted = detrend_yield(tot_yld, year),
@@ -201,7 +200,6 @@ save(dat_mai, dat_ri1, dat_ri2, dat_swh, dat_wwh, dat_soy, file = save_path)
 
 crops <- c("mai", "ri1", "ri2", "soy", "swh", "wwh")
 models <- c("acea", "ldndc", "lpjml", "pdssat", "pepic", "promet", "simplace-lintul5", "isam", "epic-iiasa", "cygma1p74", "crover", "dssat-pythia", "lpj-guess")
-degree <- 2
 
 # Initialize empty lists to store results for each crop
 crop_productions <- list()
@@ -335,7 +333,7 @@ detr_obs <- final_total_yields %>%
   mutate(year = as.numeric(year)) %>%
   filter(aggregated_yield_obs != 0 ) %>% 
   group_by(lon, lat) %>%
-  na.omit() %>% 
+  drop_na() %>% 
   filter(n() > 4) %>%   # Filter out groups with fewer than 5 non-zero observations
   mutate(
     fitted = detrend_yield(aggregated_yield_obs, year),
@@ -349,7 +347,7 @@ detr_sim <- final_total_yields %>%
   mutate(year = as.numeric(year)) %>%
   filter(aggregated_yield_sim != 0 ) %>% 
   group_by(lon, lat, model) %>%
-  na.omit() %>% 
+  drop_na() %>% 
   filter(n() > 4) %>%   # Filter out groups with fewer than 5 non-zero observations
   mutate(
     fitted = detrend_yield(aggregated_yield_sim, year),

@@ -140,7 +140,7 @@ save(LU_list, file = file.path(output_dir, "LU_list.RData"))
 
 isimip_base <- file.path(
   repo_path,
-  "data", "processed", "GGCMI_calendar_adjusted"
+  "data", "raw", "GGCMI_yields"
 )
 
 # List NetCDF files for each crop type
@@ -160,7 +160,7 @@ for (crop in crops) {
   
   info_df <- as.data.frame(matrix(unlist(strsplit(outputs, split="_", fixed=TRUE)), nrow=length(outputs), byrow=TRUE))
   info_df[,10] <- gsub(x=info_df[,10], pattern=".nc", replacement="", fixed=TRUE)
-  colnames(info_df) <- c("model", "climate", "obsclim", "soc", "default", "variable", "global", "annual", "startyear", "endyear", "calendar")  # Change if filenames of the model runs are modified
+  colnames(info_df) <- c("model", "climate", "obsclim", "soc", "default", "variable", "global", "annual", "startyear", "endyear")  # Change if filenames of the model runs are modified
   info_df$startyear <- as.numeric(as.character(info_df$startyear))
   info_df$endyear <- as.numeric(info_df$endyear)
   
@@ -202,8 +202,7 @@ for (crop in crops) {  # Loop through each crop
     
     # Extract yield + calculate production for irrigated
     nc_file_path_irr <- file.path(
-      repo_path,
-      "data", "processed", "GGCMI_calendar_adjusted",
+      isimip_base,
       crop,
       current_outputs[x][1]   # Get the irrigated file
     )
@@ -236,8 +235,7 @@ for (crop in crops) {  # Loop through each crop
     
     # Extract yield + calculate production for rainfed
     nc_file_path_noirr <- file.path(
-      repo_path,
-      "data", "processed", "GGCMI_calendar_adjusted",
+      isimip_base,
       crop,
       current_outputs[x][2]   # Get the rainfed file
     )

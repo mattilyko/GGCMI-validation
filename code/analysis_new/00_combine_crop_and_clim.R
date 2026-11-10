@@ -1,5 +1,6 @@
 library(tidyverse)
 library(tidync)
+library(furrr)
 
 get_climdata <- function(crop){
   clim_dat_path <- here::here(
@@ -43,7 +44,7 @@ get_climdata <- function(crop){
     mutate(across(everything(), as.numeric)) |> 
     mutate(
       dry = (SPI_min <= -2),
-      wet = (SPI_max >= -2),
+      wet = (SPI_max >= 2),
       .by = c(lat, lon)
     )
   
@@ -60,6 +61,8 @@ process_crop <- function(crop){
   message("Processing crop ", crop, "...")
   
   if (crop == "aggr"){
+    load(here::here("data", "processed", "integrated_cropdata", "aggr_bench.RData"))
+    load(here::here("data", "processed", "integrated_cropdata", "aggr_sim.RData"))
     
     dat_sim <- detr_sim |> 
       ungroup() |> 
@@ -83,6 +86,8 @@ process_crop <- function(crop){
     
     rm(dat_sim)
   } else {
+    load(here::here("data", "processed", "integrated_cropdata", "crop_specific_data.RData"))
+    
     dat <- get(paste0("dat_", crop)) |> 
       ungroup() |> 
       mutate(
@@ -122,9 +127,8 @@ process_crop <- function(crop){
   rm(dat)
 }
 
-load(here::here("data", "processed", "integrated_cropdata", "aggr_bench.RData"))
-load(here::here("data", "processed", "integrated_cropdata", "aggr_sim.RData"))
-load(here::here("data", "processed", "integrated_cropdata", "crop_specific_data.RData"))
+crops <- c("aggr", "mai", "ri1", "ri2", "soy", "swh", "wwh")
 
-crops <- c("aggr", "mai", "ri1", "soy", "wwh")
-map(crops, process_crop)
+plan(multisession, workers = 7)
+future_map(crops, process_crop)
+plan(sequential)
