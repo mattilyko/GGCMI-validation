@@ -82,12 +82,12 @@ dat_aggr <- qs2::qs_read(here::here(
   )
 
 dat_long <- dat_aggr |> 
-  distinct(lat, lon, year, ctr, divtrend_obs, SPI_min, SPI_max, FHD_p95, FCD_p05) |> 
+  distinct(lat, lon, year, ctr, total_area, divtrend_obs, SPI_min, SPI_max, FHD_p95, FCD_p05) |> 
   mutate(model = "benchmark") |> 
   rename("divtrend" = divtrend_obs) |> 
   bind_rows(
     dat_aggr |> 
-      distinct(lat, lon, year, ctr, model, divtrend_sim, SPI_min, SPI_max, FHD, FCD) |> 
+      distinct(lat, lon, year, ctr, total_area, model, divtrend_sim, SPI_min, SPI_max, FHD_p95, FCD_p05) |> 
       rename("divtrend" = divtrend_sim)
   ) |> 
   pivot_longer(c(SPI_min, SPI_max, FHD_p95, FCD_p05), names_to = "indicator") |> 
@@ -116,12 +116,12 @@ quantiles <- dat_aggr |>
   pmap_dfr(function(cell_lat, cell_lon, cell_ctr, cell_area){
     q10 <- dat_aggr |> 
       filter(
-        abs(lat - cell_lat) <= 0.5 * window_size,
-        abs(lon - cell_lon) <= 0.5 * window_size,
+        abs(lat - cell_lat) <= 2,
+        abs(lon - cell_lon) <= 2,
         ctr == cell_ctr
       ) |> 
       summarize(q10 = quantile(divtrend_obs, 0.1, na.rm = TRUE)) |> 
-      as_numeric()
+      as.numeric()
      
     return(tibble(
       lat = cell_lat, lon = cell_lon, q10 = q10
@@ -130,7 +130,7 @@ quantiles <- dat_aggr |>
 
 loss_freq_by_country <- dat_long |> 
   left_join(quantiles, by = c("lat", "lon")) |> 
-  left_join(bins, by = c("lat", "lon", "year")) |> 
+  left_join(bins, by = c("lat", "lon", "year", "indicator")) |> 
   summarize(
     loss_freq = sum(total_area * (divtrend <= q10))/sum(total_area),
     .by = c(ctr, model, indicator, bin_midpoint)

@@ -13,9 +13,6 @@ country_mask_path <- file.path(repo_path, "data", "raw", "other", "countrymasks.
 # Open the NetCDF file
 ctr.bin <- ncdf4::nc_open(filename = country_mask_path)
 
-# Optional: check contents
-# print(ctr.bin)  226 variables, for each country one variable
-
 var.names=names(ctr.bin$var)
 var.iso=gsub(x=var.names, pattern="m_", replacement="", fixed=TRUE)
 
@@ -36,7 +33,7 @@ for(i in 1:length(var.names)){
 
 lonlat=as.data.frame(lonlat)
 
-country_cols <- names(lonlat)[3:216]
+country_cols <- names(lonlat)[-(1:2)]
 # Add country ID column
 lonlat$ctr <- apply(lonlat[, country_cols], 1, function(row) {
   num_countries <- sum(row == 1)
@@ -276,8 +273,8 @@ for (crop in crops) {  # Loop through each crop
       for (k in 1:length(tgrid_ctr)) {  # For each country ID
         cntr_prod_irr[k, l] <- sum(prod_irr[tgrid$ctr == tgrid_ctr[k], l], na.rm = TRUE)
         cntr_prod_rain[k, l] <- sum(prod_rain[tgrid$ctr == tgrid_ctr[k], l], na.rm = TRUE)
-        area_irr[k, ] <- sum(irrigated_LU_list[tgrid$ctr == tgrid_ctr[k], ], na.rm = TRUE)
-        area_rain[k, ] <- sum(rainfed_LU_list[tgrid$ctr == tgrid_ctr[k], ], na.rm = TRUE)
+        area_irr[k,]  <- sum(irrigated_LU_list[tgrid$ctr == tgrid_ctr[k], "2015"], na.rm = TRUE)
+        area_rain[k,] <- sum(rainfed_LU_list[tgrid$ctr  == tgrid_ctr[k], "2015"],  na.rm = TRUE)
       } # close year loop
     } # close country loop
     

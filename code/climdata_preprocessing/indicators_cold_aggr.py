@@ -64,9 +64,9 @@ temp_days = xr.concat([temp1, temp2, temp3, temp4], dim='time')
 # load crop data (earlier processed in R as RData)
 cropdat_swh = pyreadr.read_r(repo_path / "data/processed/integrated_cropdata/crop_specific_data.RData")["dat_swh"] 
 cropdat_wwh = pyreadr.read_r(repo_path / "data/processed/integrated_cropdata/crop_specific_data.RData")["dat_wwh"]
-cropdat_ri1 = pyreadr.read_r(repo_path / "data/processed/integrated_cropdata/crop_specific_data.RData")["dat_soy"]
-cropdat_ri2 = pyreadr.read_r(repo_path / "data/processed/integrated_cropdata/crop_specific_data.RData")["dat_ri1"]
-cropdat_soy = pyreadr.read_r(repo_path / "data/processed/integrated_cropdata/crop_specific_data.RData")["dat_ri2"]
+cropdat_soy = pyreadr.read_r(repo_path / "data/processed/integrated_cropdata/crop_specific_data.RData")["dat_soy"]
+cropdat_ri1 = pyreadr.read_r(repo_path / "data/processed/integrated_cropdata/crop_specific_data.RData")["dat_ri1"]
+cropdat_ri2 = pyreadr.read_r(repo_path / "data/processed/integrated_cropdata/crop_specific_data.RData")["dat_ri2"]
 cropdat_mai = pyreadr.read_r(repo_path / "data/processed/integrated_cropdata/crop_specific_data.RData")["dat_mai"] 
 
 # Add a column to each DataFrame indicating the crop name

@@ -316,15 +316,25 @@ for (crop in crops) {  # Loop through each crop
   crop_productions[[crop]] <- total_crop_production
 }
 
-# Combine production for all crops
-final_total_yields <- do.call(rbind, crop_productions) %>%
-  group_by(lon, lat, year, model) %>%
-  summarise(total_production_sim = sum(production, na.rm = TRUE),
-            total_area = sum(area, na.rm = TRUE),
-            total_production_obs = sum(yield * area),
-            ctr = first(ctr)) %>%
-  mutate(aggregated_yield_sim = total_production_sim / total_area,
-         aggregated_yield_obs = total_production_obs / total_area)
+all_crops <- do.call(rbind, crop_productions)
+
+final_obs <- all_crops %>%
+  distinct(lon, lat, year, crop, .keep_all = TRUE) %>%
+  summarise(
+    total_production_obs = sum(yield * area, na.rm = TRUE),
+    total_area           = sum(area, na.rm = TRUE),
+    ctr                  = first(ctr),
+    .by = c(lon, lat, year)
+  ) %>%
+  mutate(aggregated_yield_obs = total_production_obs / total_area)
+
+final_total_yields <- final_obs %>%
+  summarise(
+    total_production_sim = sum(production, na.rm = TRUE),
+    .by = c(lon, lat, year, model)
+  ) %>%
+  left_join(obs_by_cell_year, by = c("lon", "lat", "year")) %>%
+  mutate(aggregated_yield_sim = total_production_sim / total_area)
 
 # Detrend observed yields
 detr_obs <- final_total_yields %>%
