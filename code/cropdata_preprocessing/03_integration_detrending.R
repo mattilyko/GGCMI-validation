@@ -328,12 +328,12 @@ final_obs <- all_crops %>%
   ) %>%
   mutate(aggregated_yield_obs = total_production_obs / total_area)
 
-final_total_yields <- final_obs %>%
+final_total_yields <- all_crops %>%
   summarise(
     total_production_sim = sum(production, na.rm = TRUE),
     .by = c(lon, lat, year, model)
   ) %>%
-  left_join(obs_by_cell_year, by = c("lon", "lat", "year")) %>%
+  left_join(final_obs, by = c("lon", "lat", "year")) %>%
   mutate(aggregated_yield_sim = total_production_sim / total_area)
 
 # Detrend observed yields

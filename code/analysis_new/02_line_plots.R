@@ -97,7 +97,7 @@ dat_long <- dat_aggr |>
     labels = c("SPI_min", "SPI_max", "FHD", "FCD")
   ))
 
-models <- unique(dat_aggr$model) - 1
+models <- setdiff(unique(dat_aggr$model), "ensemble")
 
 bins <- dat_long |> 
   filter(model == "benchmark") |> 

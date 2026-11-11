@@ -1,0 +1,641 @@
+---
+title: "Loss frequency-based performance measures"
+subtitle: "Formulas and visualizations"
+author: "Matti Lyko"
+date: today
+format:
+  pdf:
+    fig-pos: "H"
+---
+
+This document is meant to explain and illustrate the loss frequency-based performance measures I have used for the plots and tables shown in our last few meetings. As requested, it also includes an example of a specific country and extreme, giving hopefully helpful illustrations.
+
+# The formulas
+
+In this first part, I provide the formulas for the loss frequencies and derived performance measures.
+
+## Notation
+
+Throughout, I will use the following notation:
+
+- $x$ denotes a grid cell, $t$ a calendar year, and $(x,t)$ the corresponding cell-year.
+
+- For a cell $x$, denote by $\text{lat}(x)$ and $\text{lon}(x)$ the corresponding latitude and longitude.
+
+- $c$ denotes a crop (including the "aggregated" category).
+
+- $m$ denotes a GGCM, and the set of GGCMs is denoted by $M$.
+
+- $\text{ts}$ denotes a yield type, which can either be $\text{bench}$ for benchmark, $\text{ens}$ for ensemble median, or any of the individual GGCMs $m\in M$. 
+
+- $DY^\text{ts}_\text{rel}(x,t;c)$ denotes the relative detrended yield for type $\text{ts}$ and crop $c$ in cell-year $(x,t)$.
+
+- $C$ will denote a country. If a grid cell $x$ is assigned $C$ as a country, I will write $x\in C$. Moreover, for any $x$ I will write $C(x)$ for the country assigned to $x$.
+
+- $E$ will denote an \emph{event category}, such as dry extremes, a certain indicator value bin, or the "All climates" category. I will write $(x,t)\in E$ if the event occurred in cell-year $(x,t)$. For example, if $E$ denotes the event category of dry extremes, then $(x,t)\in E$ whenever $\text{SPI}_\text{min}(x,t)\leq -2$.
+
+- $A(x;c)$ will denote the harvest area for crop $c$ in grid-cell $x$.
+
+## Loss frequencies per grid cell
+
+Fix a \emph{window size} $h>0$. So far, I am always using $h=4$. 
+
+Let $x$ be a grid cell. Let 
+$$
+U_\text{ac}(x) := \left\{ x' \, : \, \left| \text{lat}(x) - \text{lat}(x') \right| \leq h \cdot 0.5^\circ \, , \, \left| \text{lon}(x) - \text{lon}(x') \right| \leq h \cdot 0.5^\circ \right\}
+$$
+denote the square neighborhood of side length $h^\circ$ centered on $x$. The subscript $\text{ac}$ indicates that this neighborhood includes \emph{all cells} sufficiently close to $x$. This is to contrast it from the \emph{country-only} neighborhood
+$$
+U_\text{co}(x) := U_\text{ac}(x) \cap C(x)
+$$
+containing all sufficiently close cells in the same country.
+
+For the cell $x$, crop $c$, and $k\in\{\text{ac, co}\}$, we compute the quantile
+$$
+q_k(x;c) := 10\%\text{-quantile of } \left\{ DY^\text{bench}_\text{rel}(x',t;c) \, : \, x'\in U_k(x)\right\} \; .
+$$
+This quantile measures the severity of a \emph{1-in-10-years loss event} in the neighborhood $U_k(x)$. A yield below it will be considered a loss event. 
+
+Let $E$ be an event category. I define the \emph{loss frequency} for grid cell $x$, crop $c$, yield type $\text{ts}$, and $k\in\{\text{ac, co}\}$ as
+$$
+\text{LF}^{\text{ts},E}_k(x;c) := \frac{1}{\left| U_k^{E}(x) \right|} \sum_{(x',t) \in U_k^{E}(x)} \mathbf{I}\left( DY^\text{ts}_\text{rel}(x',t;c) \leq q_k(x;c)\right) \; ,
+$$
+where 
+$$
+U_k^{E}(x) := \{ (x',t) \, : \, x'\in U_k(x), \, (x',t)\in E\} \; .
+$$
+It counts the frequency of loss events among event in $E$ in the neighborhood of $x$.
+
+## Loss-frequence-based performance measures
+
+Based on these loss frequencies, I consider two measures of GGCM performance. The first is the proportion of GGCMs that underestimate the benchmark loss frequency, i.e.
+$$
+\text{PM}^E_k(x;c) := \frac{1}{|M|} \sum_{m\in M} \mathbf{I}\left( \text{LF}^{m,E}_k(x;c) < \text{LF}^{\text{bench},E}_k(x;c) \right)
+$$
+The second is the amount by which the ensemble median underestimates the benchmark loss frequency, i.e.
+$$
+\text{EU}^E_k(x;c) := \text{LF}^{\text{bench},E}_k(x;c) - \text{LF}^{\text{ens},E}_k(x;c) \; .
+$$
+These values are displayed directly in the grid-level maps, using $k=\text{ac}$.
+
+## Aggregation to country level
+
+For the line plots and country tables, these grid-level quantities have to be aggregated to a country level. For this, cells are weighted by their harvest area. Specifically, for a country $C$ I define
+\begin{align*}
+\text{PM}^E(C;c) &:= \frac{\sum_{x\in C} A(x;c) \cdot \text{PM}^E_\text{co}(x;c)}{\sum_{x\in C} A(x;c)} \\
+\text{EO}^E(C;c) &:= \frac{\sum_{x\in C} A(x;c) \cdot \text{EO}^E_\text{co}(x;c)}{\sum_{x\in C} A(x;c)} \; .
+\end{align*}
+These aggregated quantities are used for the line plots and country tables.
+
+## Aggregating numbers of models
+
+The percentage of underestimating models has been fairly criticized on the grounds that the percentage value hides the fact that the possible values belong to the discrete set of multiples of $100\% \cdot |M|^{-1}$. This is exacerbated by the aggregation to country level, as a result of which the proportion $\text{PM}^E(C;c)$ need no longer be a multiple of $100\% \cdot |M|^{-1}$. Let me suggest a possible alternative that maintains the discrete nature of the quantity.
+
+Instead of a per-grid-cell percentage of models, one could instead consider the integer-valued \emph{number of underestimating models}
+$$
+\text{NM}^E_k(x;c) := \sum_{m\in M} \mathbf{I}\left( \text{LF}^{m,E}_k(x;c) < \text{LF}^{\text{bench},E}_k(x;c) \right) \; .
+$$
+This makes sense only for individual crops (i.e. $c\neq\text{aggr}$), because not all models predict every crop.
+
+While this could be aggregated to country-level via weighted average as above, the result would generally no longer be an integer. This can be remedied by instead using the \emph{harvest-area-weighted median}
+$$
+\text{NM}^E(C;c) := \min \left\{ n\in \mathbb{N} \, : \, \frac{\sum_{x\in C} A(x;c) \cdot \mathbf{I}\left( \text{NM}^E_\text{co}(x;c) \leq n \right)}{\sum_{x\in C} A(x;c)}  \geq 0.5 \right\}
+$$
+"Intuitively", this is the smallest number $n$ such that at most $n$ GGCMs underestimate the benchmark loss frequency in cells that have at least 50\% of the harvest area in country $C$. If all cells have the same harvest area, it is the regular median of the numbers $\text{NM}^E_\text{co}(x;c)$.
+
+## Event categories
+
+For the sake of completeness, I give the definitions of all event categories used in line plots, maps, and country tables. Note that all indicators are computed for each grid cell separately, i.e. not using observations of neighboring grid cells.
+
+- Dry: A cell-year $(x,t)$ is in the \emph{dry} category if $\text{SPI}_\text{min}(x,t)\leq -2$.
+
+- Wet: A cell-year $(x,t)$ is in the \emph{wet} category if $\text{SPI}_\text{max}(x,t)\geq 2$.
+
+- Hot: A cell-year $(x,t)$ is in the \emph{hot} category if 
+$$
+\text{FHD}(x,t)\geq \text{quantile}_{95\%}\left\{\text{FHD}(x,t')\right\} \; .
+$$
+
+- Cold: A cell-year $(x,t)$ is in the \emph{cold} category if 
+$$
+\text{FCD}(x,t)\geq \text{quantile}_{95\%}\left\{\text{FCD}(x,t')\right\} \; .
+$$
+
+- Hot\&dry: A cell-year is in the \emph{hot \& dry} category if it is in both hot and dry category.
+
+- All climates: all cell-years are in the \emph{all climates} category.
+
+- Indicator bins: For the line plots and an indicator (one of $\text{SPI}_\text{min}$, $\text{SPI}_\text{max}$, $\text{FHD}$, and $\text{FCD}$), all cell-years in a given country are divided into 10 bins of (approximately) equal size based on their indicator value. Each bin is considered as a separate event category.
+
+\newpage
+
+# Data example 
+
+```{r}
+#| label: malawi-setup
+#| include: false
+#| message: false
+#| warning: false
+
+library(tidyverse)
+library(sf)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(patchwork)
+
+# ── Data ──────────────────────────────────────────────────────────────────────
+
+dat_mai <- qs2::qs_read(here::here(
+  "data", "processed", "figure_ready_data", "full_data_mai.RDS"
+))
+
+h <- 4  # window size, must match 01_grid_level_underestimation_data.R
+
+# ── Focal cell: highest maize area in Malawi ──────────────────────────────────
+
+focal_lat <- -13.75
+focal_lon <- 34.25
+
+# ── Country-only neighbourhood U_co(x0) ──────────────────────────────────────
+
+u_co <- dat_mai |>
+  filter(
+    ctr == "MWI",
+    abs(lat - focal_lat) <= 0.5 * h,
+    abs(lon - focal_lon) <= 0.5 * h
+  )
+
+# ── q10 threshold ─────────────────────────────────────────────────────────────
+# divtrend_obs is identical across models for a given (lat, lon, year),
+# so we work with distinct cell-years to avoid implicit reweighting
+
+q10 <- u_co |>
+  distinct(lat, lon, year, divtrend_obs) |>
+  pull(divtrend_obs) |>
+  quantile(0.1, na.rm = TRUE)
+
+# ── Loss frequencies ──────────────────────────────────────────────────────────
+
+dry_u_co <- u_co |> filter(dry == TRUE)
+
+lf_bench <- dry_u_co |>
+  distinct(lat, lon, year, divtrend_obs) |>
+  summarise(lf = mean(divtrend_obs <= q10, na.rm = TRUE)) |>
+  pull(lf)
+
+lf_models <- dry_u_co |>
+  group_by(model) |>
+  summarise(lf_sim = mean(divtrend_sim <= q10, na.rm = TRUE), .groups = "drop") |>
+  mutate(is_ensemble = (model == "ensemble"))
+
+lf_ensemble  <- lf_models |> filter( is_ensemble) |> pull(lf_sim)
+individual_models <- lf_models |> filter(!is_ensemble) |> arrange(model) |> pull(model)
+
+PM <- lf_models |>
+  filter(!is_ensemble) |>
+  summarise(PM = mean(lf_sim < lf_bench)) |>
+  pull(PM)
+
+EU <- lf_bench - lf_ensemble
+
+# ── Focal cell data ───────────────────────────────────────────────────────────
+
+focal_dat <- dat_mai |>
+  filter(lat == focal_lat, lon == focal_lon)
+
+dry_years_focal <- focal_dat |>
+  filter(dry == TRUE) |>
+  distinct(year) |>
+  pull(year)
+
+# ── Map base layers ───────────────────────────────────────────────────────────
+
+region_sf <- ne_countries(continent = "Africa", scale = "medium", returnclass = "sf") |>
+  filter(iso_a3 %in% c("MWI", "MOZ", "ZMB", "TZA", "ZWE"))
+
+mwi_cells <- dat_mai |>
+  filter(ctr == "MWI") |>
+  distinct(lat, lon, total_area)
+
+# ── Shared theme ──────────────────────────────────────────────────────────────
+
+theme_ex <- theme_minimal(base_size = 11) +
+  theme(plot.title.position = "plot", plot.subtitle = element_text(color = "gray40"))
+
+under_mai <- qs2::qs_read(here::here(
+  "data", "processed", "figure_ready_data", "underestimation_data_mai.RDS"
+))
+
+mwi_dry <- under_mai |>
+  filter(ctr == "MWI", extreme == "dry") |>
+  drop_na(perc_underestimation_ctr, total_area) |>
+  mutate(ens_underestimation_ctr = loss_freq_obs_ctr - loss_freq_ens_ctr)
+
+PM_mwi_weighted   <- weighted.mean(mwi_dry$perc_underestimation_ctr, mwi_dry$total_area)
+PM_mwi_unweighted <- mean(mwi_dry$perc_underestimation_ctr)
+
+# Shared fill scale so map and bar chart use identical colours
+pm_fill <- scico::scale_fill_scico(
+  palette  = "vanimo",
+  midpoint = 50,
+  limits   = c(0, 100),
+  name     = "PM (%)",
+  labels   = scales::label_percent(scale = 1)
+)
+
+EU_mwi_weighted   <- weighted.mean(mwi_dry$ens_underestimation_ctr, mwi_dry$total_area)
+EU_mwi_unweighted <- mean(mwi_dry$ens_underestimation_ctr)
+
+eu_lim <- max(abs(mwi_dry$ens_underestimation_ctr), na.rm = TRUE)
+
+eu_fill <- scico::scale_fill_scico(
+  palette  = "vanimo",
+  midpoint = 0,
+  limits   = c(-eu_lim, eu_lim),
+  name     = "EU (pp)",
+  labels   = function(x) paste0(ifelse(x > 0, "+", ""), round(x, 1), "%")
+)
+```
+
+As requested, I provide some visualizations of these computations for the country of Malawi, using maize and the dry extreme as an example category.
+
+```{r}
+#| label: fig-mwi-map
+#| echo: false
+#| fig-cap: | 
+#|   Map of the cells that are assigned Malawi as a country, colored by their maize production area. Highlighted is a reference cell $x_{0}$ that will be used as an example for grid-cell-level computations in the following few plots. The dashed box indicated the neighborhood $U_{\mathrm{ac}}(x_{0})$, and the colored cells inside it define $U_{\mathrm{co}}(x_{0})$.
+#| fig-width: 6
+#| fig-height: 5
+
+ggplot() +
+  geom_sf(data = region_sf, fill = "gray92", color = "gray70", linewidth = 0.3) +
+  geom_tile(
+    data = mwi_cells,
+    aes(x = lon, y = lat, fill = total_area / 1e6),
+    width = 0.5, height = 0.5
+  ) +
+  geom_rect(
+    aes(
+      xmin = focal_lon - 0.5 * h,  xmax = focal_lon + 0.5 * h,
+      ymin = focal_lat - 0.5 * h,  ymax = focal_lat + 0.5 * h
+    ),
+    fill = NA, color = "black", linetype = "dashed", linewidth = 0.8
+  ) +
+  geom_point(
+    aes(x = focal_lon, y = focal_lat),
+    shape = 18, color = "red", size = 4
+  ) +
+  scale_fill_viridis_c(
+    option = "magma", direction = -1, name = "Production area\n(km²)"
+  ) +
+  coord_sf(xlim = c(32, 37.5), ylim = c(-17.5, -9.0), expand = FALSE) +
+  labs(
+    x = NULL, y = NULL
+  ) +
+  theme_ex
+```
+
+```{r}
+#| label: fig-mwi-benchmark-ts
+#| echo: false
+#| fig-cap: |
+#|   Relative detrended benchmark yields of all cells in $U_\text{co}(x_0)$. Shown in red is the 10\%-quantile $q_\text{co}(x_0;\text{mai})$.
+#| fig-width: 7
+#| fig-height: 3.5
+
+bench_ts <- u_co |>
+  distinct(lat, lon, year, divtrend_obs) |>
+  mutate(cell_id = paste(lat, lon))
+
+dry_ticks <- tibble(year = dry_years_focal)
+
+ggplot() +
+  geom_line(
+    data = bench_ts,
+    aes(x = year, y = divtrend_obs, group = cell_id),
+    color = "gray40", alpha = 0.4, linewidth = 0.4
+  ) +
+  geom_hline(yintercept = 1,    linetype = "dotted", color = "gray70") +
+  geom_hline(yintercept = q10,  linetype = "dashed",  color = "red", linewidth = 0.9) +
+  annotate(
+    "text",
+    x   = max(bench_ts$year),
+    y   = q10 - 0.05,
+    label = paste0("q\u2081\u2080 = ", round(q10, 2)),
+    hjust = 1, color = "red", size = 3.5
+  ) +
+  scale_x_continuous(breaks = scales::breaks_pretty(8)) +
+  labs(
+    x = "Year", y = "Relative detrended benchmark yield",
+  ) +
+  theme_ex
+```
+
+```{r}
+#| label: fig-mwi-year-classification
+#| fig-cap: |
+#|   Illustration of which cell-years in $U_\text{co}(x_0)$ belong to the dry category, and in which of those a loss occurred.
+#| fig-width: 8
+#| fig-height: 7
+#| echo: false
+
+# Build labels; mark focal cell, order north-to-south then west-to-east
+cell_meta <- u_co |>
+  distinct(lat, lon) |>
+  mutate(
+    cell_label = if_else(
+      lat == focal_lat & lon == focal_lon,
+      paste0("(", lat, ", ", lon, ")  x\u2080"),
+      paste0("(", lat, ", ", lon, ")")
+    )
+  ) |>
+  arrange(desc(lat), lon)
+
+cell_levels <- cell_meta$cell_label
+
+# Classify all U_co cell-years
+u_co_classified <- u_co |>
+  distinct(lat, lon, year, divtrend_obs, dry) |>
+  left_join(cell_meta, by = c("lat", "lon")) |>
+  mutate(
+    cell_label = factor(cell_label, levels = cell_levels),
+    category   = case_when(
+      !dry                             ~ "Not dry",
+      dry & (divtrend_obs >  q10)     ~ "Dry, no loss",
+      dry & (divtrend_obs <= q10)     ~ "Dry + loss"
+    ),
+    category = factor(category, levels = c("Not dry", "Dry, no loss", "Dry + loss"))
+  )
+
+focal_rows <- u_co_classified |>
+  filter(lat == focal_lat, lon == focal_lon)
+
+ggplot(u_co_classified, aes(x = year, y = cell_label, fill = category)) +
+  geom_tile(color = "white", linewidth = 0.2) +
+  scale_fill_manual(
+    values = c(
+      "Not dry"      = "gray88",
+      "Dry, no loss" = "#F4A460",
+      "Dry + loss"   = "#8B1A1A"
+    )
+  ) +
+  scale_x_continuous(breaks = scales::breaks_pretty(8)) +
+  labs(
+    x = "Year", y = "Grid cell (lat, lon)", fill = NULL,
+  ) +
+  theme_ex +
+  theme(
+    panel.grid       = element_blank(),
+    legend.position  = "bottom",
+    axis.text.y      = element_text(size = 8, family = "mono")
+  )
+```
+
+```{r}
+#| label: fig-mwi-dotmatrix
+#| fig-cap: | 
+#|   For each year, in which at least one dry event occurred in $U_\text{co}(x_0)$ occurred, the proportion of loss events among the relevant cell years is shown. This is a disaggregation of the loss frequencies $\text{LF}_\text{co}^\text{ts}(x_0;\text{mai})$, in that the average of each row (correctly weighted according to the number of dry events) computes the corresponding loss frequency. 
+#| echo: false
+#| fig-width: 8
+#| fig-height: 6
+
+# ── Data prep ─────────────────────────────────────────────────────────────────
+
+# Distinct dry cell-years in U_co (model-independent)
+dry_cellyears_u_co <- u_co |>
+  filter(dry == TRUE) |>
+  distinct(lat, lon, year, divtrend_obs)
+
+# Per-year: benchmark loss fraction and count of dry cells
+bench_by_year <- dry_cellyears_u_co |>
+  group_by(year) |>
+  summarise(
+    loss_frac   = mean(divtrend_obs <= q10, na.rm = TRUE),
+    n_dry_cells = n(),
+    .groups = "drop"
+  )
+
+dry_years_u_co <- sort(bench_by_year$year)
+
+# Per-year per-model: fraction of dry cell-years with a simulated loss event
+# (dry is cell-defined, so u_co rows with dry == TRUE is the right denominator)
+model_by_year <- u_co |>
+  filter(dry == TRUE) |>
+  group_by(model, year) |>
+  summarise(
+    loss_frac = mean(divtrend_sim <= q10, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Factor levels: Benchmark at top, Ensemble below it, then models alphabetically
+n_indiv           <- length(individual_models)
+source_levels_plot <- c(rev(sort(individual_models)), "ensemble", "Benchmark")
+
+heatmap_dat <- bind_rows(
+  bench_by_year |> transmute(year, source = "Benchmark", loss_frac),
+  model_by_year |> transmute(year, source = model,       loss_frac)
+) |>
+  complete(
+    year   = dry_years_u_co,
+    source = source_levels_plot
+  ) |>
+  mutate(
+    source = factor(source, levels = source_levels_plot),
+    year   = factor(year, levels = as.character(dry_years_u_co))
+  )
+
+# x-axis labels: year + number of dry cells
+year_labels <- setNames(
+  paste0(bench_by_year$year, "\n(", bench_by_year$n_dry_cells, ")"),
+  as.character(bench_by_year$year)
+)
+
+# ── Plot ──────────────────────────────────────────────────────────────────────
+
+ggplot(heatmap_dat, aes(x = year, y = source, fill = loss_frac)) +
+  geom_tile(color = "white", linewidth = 0.4) +
+  geom_hline(
+    yintercept = n_indiv + 0.5,
+    linewidth = 1.0, color = "gray20"
+  ) +
+  geom_hline(
+    yintercept = n_indiv + 1.5,
+    linewidth = 0.6, color = "gray50", linetype = "dashed"
+  ) +
+  scale_x_discrete(labels = year_labels) +
+  scale_fill_gradient(
+    low      = "gray92",
+    high     = "#2b2b2b",
+    na.value = "white",
+    name     = "Fraction\nwith loss",
+    labels   = scales::label_percent()
+  ) +
+  labs(
+    x = "Year  (number of dry cells in neighbourhood)",
+    y = NULL,
+  ) +
+  theme_ex +
+  theme(
+    axis.text.x  = element_text(angle = 45, hjust = 1, size = 8),
+    panel.grid   = element_blank(),
+    legend.position = "right"
+  )
+```
+
+```{r}
+#| label: fig-mwi-lossfreq
+#| fig-cap: |
+#|   The loss frequencies $\text{LF}^\text{ts}_\text{co}(x_0;\text{mai})$. The values of the percentage of underestimating models $\text{PM}_\text{co}(x_0;\text{mai})$ and the ensemble underestimation $\text{EU}_\text{co}(x_0;\text{mai})$ are also shown.
+#| echo: false
+#| fig-width: 7
+#| fig-height: 3.5
+
+lf_all <- lf_models |>
+  transmute(
+    source  = model,
+    lf_pct  = lf_sim * 100,
+    type    = if_else(is_ensemble, "ensemble", "Model")
+  ) |>
+  bind_rows(tibble(source = "Benchmark", lf_pct = lf_bench * 100, type = "Benchmark")) |>
+  mutate(
+    source = factor(source, levels = c("Benchmark", "ensemble", individual_models))
+  )
+
+ggplot(lf_all, aes(x = source, y = lf_pct, fill = type)) +
+  geom_col(width = 0.7) +
+  geom_hline(
+    yintercept = lf_bench * 100,
+    linetype = "dashed", color = "red", linewidth = 0.9
+  ) +
+  scale_fill_manual(
+    values = c("Benchmark" = "black", "ensemble" = "steelblue", "Model" = "gray60"),
+    guide  = "none"
+  ) +
+  scale_y_continuous(
+    labels = scales::label_percent(scale = 1),
+    expand = expansion(mult = c(0, 0.08))
+  ) +
+  labs(
+    x = NULL,
+    y = "Loss frequency (dry years)",
+    title = NULL,
+    subtitle = paste0(
+      "PM = ", round(PM * 100, 1), "%, ",
+      "EU = ", round(EU * 100, 1), " percentage points"
+    )
+  ) +
+  theme_ex +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+#| label: mwi-pm-eu-plots
+#| include: false
+
+p_pm <- ggplot() +
+  geom_sf(data = region_sf, fill = "gray92", color = "gray70", linewidth = 0.3) +
+  geom_tile(
+    data  = mwi_dry,
+    aes(x = lon, y = lat, fill = perc_underestimation_ctr),
+    width = 0.5, height = 0.5
+  ) +
+  pm_fill +
+  coord_sf(xlim = c(32.3, 36.2), ylim = c(-17.5, -9.0), expand = FALSE) +
+  labs(
+    x        = NULL, y = NULL,
+    title    = expression(PM[co]^{Dry}),
+    subtitle = paste0("Weighted mean: ", round(PM_mwi_weighted, 1), "%")
+  ) +
+  theme_ex +
+  theme(legend.position = "bottom")
+
+p_eu <- ggplot() +
+  geom_sf(data = region_sf, fill = "gray92", color = "gray70", linewidth = 0.3) +
+  geom_tile(
+    data  = mwi_dry,
+    aes(x = lon, y = lat, fill = ens_underestimation_ctr),
+    width = 0.5, height = 0.5
+  ) +
+  eu_fill +
+  coord_sf(xlim = c(32.3, 36.2), ylim = c(-17.5, -9.0), expand = FALSE) +
+  labs(
+    x        = NULL, y = NULL,
+    title    = expression(EU[co]^{Dry}),
+    subtitle = paste0("Weighted mean: ", round(EU_mwi_weighted, 1), " pp")
+  ) +
+  theme_ex +
+  theme(legend.position = "bottom")
+
+p_bar_pm <- mwi_dry |>
+  arrange(perc_underestimation_ctr) |>
+  mutate(
+    area_share = total_area / sum(total_area),
+    x_end      = cumsum(area_share),
+    x_start    = x_end - area_share
+  ) |>
+  ggplot(aes(xmin = x_start, xmax = x_end,
+             ymin = 0,        ymax = perc_underestimation_ctr,
+             fill = perc_underestimation_ctr)) +
+  geom_rect(color = "white", linewidth = 0.2) +
+  geom_hline(yintercept = PM_mwi_unweighted,
+             linetype = "dotted", color = "gray30", linewidth = 0.9) +
+  geom_hline(yintercept = PM_mwi_weighted,
+             linetype = "dashed", color = "black", linewidth = 1.1) +
+  annotate("text", x = 0.99, y = PM_mwi_weighted + 3,
+           label = paste0("Wtd: ", round(PM_mwi_weighted, 1), "%"),
+           hjust = 1, size = 3) +
+  annotate("text", x = 0.99, y = PM_mwi_unweighted - 3,
+           label = paste0("Unwtd: ", round(PM_mwi_unweighted, 1), "%"),
+           hjust = 1, size = 3, color = "gray30") +
+  pm_fill +
+  scale_x_continuous(labels = scales::label_percent(), expand = c(0, 0)) +
+  scale_y_continuous(labels = scales::label_percent(scale = 1),
+                     expand = expansion(mult = c(0, 0.08))) +
+  labs(x = "Cumulative area share", y = "PM (%)") +
+  theme_ex +
+  theme(legend.position = "none")
+
+p_bar_eu <- mwi_dry |>
+  arrange(ens_underestimation_ctr) |>
+  mutate(
+    area_share = total_area / sum(total_area),
+    x_end      = cumsum(area_share),
+    x_start    = x_end - area_share
+  ) |>
+  ggplot(aes(xmin = x_start, xmax = x_end,
+             ymin = 0,        ymax = ens_underestimation_ctr,
+             fill = ens_underestimation_ctr)) +
+  geom_rect(color = "white", linewidth = 0.2) +
+  geom_hline(yintercept = 0, color = "gray50", linewidth = 0.5) +
+  geom_hline(yintercept = EU_mwi_unweighted,
+             linetype = "dotted", color = "gray30", linewidth = 0.9) +
+  geom_hline(yintercept = EU_mwi_weighted,
+             linetype = "dashed", color = "black", linewidth = 1.1) +
+  annotate("text", x = 0.99, y = EU_mwi_weighted + sign(EU_mwi_weighted) * 1.5,
+           label = paste0("Wtd: ", round(EU_mwi_weighted, 1), " pp"),
+           hjust = 1, size = 3) +
+  annotate("text", x = 0.99, y = EU_mwi_unweighted - sign(EU_mwi_unweighted) * 1.5,
+           label = paste0("Unwtd: ", round(EU_mwi_unweighted, 1), " pp"),
+           hjust = 1, size = 3, color = "gray30") +
+  eu_fill +
+  scale_x_continuous(labels = scales::label_percent(), expand = c(0, 0)) +
+  scale_y_continuous(
+    labels = function(x) paste0(ifelse(x > 0, "+", ""), round(x, 1), "%"),
+    expand = expansion(mult = c(0.08, 0.08))
+  ) +
+  labs(x = "Cumulative area share", y = "EU (pp)") +
+  theme_ex +
+  theme(legend.position = "none")
+```
+
+```{r}
+#| label: fig-mwi-performance
+#| echo: false
+#| fig-cap: |
+#|   Aggregation to country level. For both model percentage $\text{PM}$ and ensemble underestimation $\text{EU}$, maps of all grid cells are shown, colored by their respective per-cell value. Moreover, barplots are shown with one bar per cell, where the height indicates the per-cell value of PM/EU, and the width indicates the harvest area of the cell. The plots also include the weighted and unweighted averages. 
+#| fig-width: 8
+#| fig-height: 9
+
+(p_pm | p_eu) / (p_bar_pm | p_bar_eu) +
+  plot_layout(heights = c(1.6, 1))
+```
