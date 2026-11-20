@@ -58,16 +58,32 @@ global_map <- function(
     ) + 
     facet_grid(rows = vars(extreme), cols = vars(crop))
   
+  pal_div <- c(
+    "#88c4de",  # light blue
+    "#4898b8",  #
+    "#1c6882",  #
+    "#0e2a3e",  # dark blue  ─┐
+    "#1e1a1a",  # charcoal    ├── center
+    "#38101e",  # dark plum  ─┘
+    "#8c2448",  #
+    "#c85878",  #
+    "#e098aa"   # light rose
+  )
+  
   if (max(abs(dat[[col]] - midpoint), na.rm = TRUE) < threshold){
+    lo <- min(dat[[col]], na.rm = TRUE)
+    hi <- max(dat[[col]], na.rm = TRUE)
+    
     p <- p + 
-      scico::scale_fill_scico(
-        palette = "vanimo",
-        midpoint = midpoint,
-        breaks = c(
-          min(dat[[col]], na.rm = TRUE), 
-          midpoint, 
-          max(dat[[col]], na.rm = TRUE)
+      scale_fill_gradientn(
+        colors = pal_div,
+        values = scales::rescale(
+          c(seq(lo, midpoint, length.out = 5),
+            seq(midpoint, hi, length.out = 5)[-1]),
+          from = c(lo, hi)
         ),
+        limits = c(lo, hi),
+        breaks = c(lo, midpoint, hi),
         labels = function(x) {
           if (any(abs(x) >= 1000, na.rm = TRUE)) {
             label_vals <- format(x, scientific = TRUE, digits = 2)
@@ -91,16 +107,20 @@ global_map <- function(
       }
       
       p <- p + 
-        scico::scale_fill_scico(
-          palette = "vanimo",
-          midpoint = midpoint,
+        scale_fill_gradientn(
+          colors = pal_div,
+          values = scales::rescale(
+            c(seq(lo, midpoint, length.out = 5),
+              seq(midpoint, hi, length.out = 5)[-1]),
+            from = c(lo, hi)
+          ),
           limits = c(lo, hi),
           oob = scales::squish,
           breaks = c(lo, midpoint, hi),
           labels = function(x) {
             ifelse(
-              x - midpoint == -threshold, 
-              paste0("<", -round(threshold, digits = 1), unit), 
+              x - midpoint == -threshold,
+              paste0("<", -round(threshold, digits = 1), unit),
               ifelse(
                 x - midpoint == threshold,
                 paste0(">", round(threshold, digits = 1), unit),

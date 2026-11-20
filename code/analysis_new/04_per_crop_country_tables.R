@@ -61,6 +61,18 @@ table_dat <- underestimation_dat |>
 
 ###### percentages table ######################
 
+pal_div <- c(
+  "#b0ccd8",  # light blue (was #dde6ed)
+  "#8aabbc",
+  "#3c6a7e",
+  "#1a3340",
+  "#252020",
+  "#3d1e28",
+  "#7e4858",
+  "#bfa0a8",
+  "#d4b0bc"   # light rose (was #ede0e4)
+)
+
 perc_cols <- table_dat |> 
   select(-crop, -ctr, -starts_with("n_")) |> 
   colnames()
@@ -90,17 +102,17 @@ country_table_perc <- table_dat |>
   data_color(
     columns = starts_with("perc_"),
     fn = function(x) scales::col_numeric(
-      palette = scico::scico(256, palette = "vanimo"),
-      domain = c(0, 100)
+      palette = pal_div,
+      domain  = c(0, 100)
     )(pmin(pmax(x, 0), 100))
   ) |>
   data_color(
     columns = starts_with("ens_"),
     fn = function(x) scales::col_numeric(
-      palette = scico::scico(256, palette = "vanimo"),
-      domain = c(-30, 30)
+      palette = pal_div,
+      domain  = c(-30, 30)
     )(pmin(pmax(x, -30), 30))
-  ) |>
+  )|>
   cols_hide(columns = crop) |>
   tab_style(
     style = cell_borders(sides = "left", weight = px(2), color = "gray50"),

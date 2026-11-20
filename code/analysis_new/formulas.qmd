@@ -30,7 +30,7 @@ Throughout, I will use the following notation:
 
 - $DY^\text{ts}_\text{rel}(x,t;c)$ denotes the relative detrended yield for type $\text{ts}$ and crop $c$ in cell-year $(x,t)$.
 
-- $C$ will denote a country. If a grid cell $x$ is assigned $C$ as a country, I will write $x\in C$. Moreover, for any $x$ I will write $C(x)$ for the country assigned to $x$.
+- $C$ will denote a country. If a grid cell $x$ is assigned $C$ as a country, I will write $x\in C$. Moreover, for any grid cell $x$ I will write $C(x)$ for the country assigned to $x$.
 
 - $E$ will denote an \emph{event category}, such as dry extremes, a certain indicator value bin, or the "All climates" category. I will write $(x,t)\in E$ if the event occurred in cell-year $(x,t)$. For example, if $E$ denotes the event category of dry extremes, then $(x,t)\in E$ whenever $\text{SPI}_\text{min}(x,t)\leq -2$.
 
@@ -54,17 +54,20 @@ For the cell $x$, crop $c$, and $k\in\{\text{ac, co}\}$, we compute the quantile
 $$
 q_k(x;c) := 10\%\text{-quantile of } \left\{ DY^\text{bench}_\text{rel}(x',t;c) \, : \, x'\in U_k(x)\right\} \; .
 $$
-This quantile measures the severity of a \emph{1-in-10-years loss event} in the neighborhood $U_k(x)$. A yield below it will be considered a loss event. 
+This quantile measures the severity of a \emph{1-in-10-years loss event} in the neighborhood $U_k(x)$. A (relative detrended) yield below it will be considered a loss event. 
 
 Let $E$ be an event category. I define the \emph{loss frequency} for grid cell $x$, crop $c$, yield type $\text{ts}$, and $k\in\{\text{ac, co}\}$ as
 $$
-\text{LF}^{\text{ts},E}_k(x;c) := \frac{1}{\left| U_k^{E}(x) \right|} \sum_{(x',t) \in U_k^{E}(x)} \mathbf{I}\left( DY^\text{ts}_\text{rel}(x',t;c) \leq q_k(x;c)\right) \; ,
+\text{LF}^{\text{ts},E}_k(x;c) := \frac{1}{\left| B_k^{E}(x) \right|} \sum_{(x',t) \in B_k^{E}(x)} \mathbf{I}\left( DY^\text{ts}_\text{rel}(x',t;c) \leq q_k(x;c)\right) \; ,
 $$
 where 
 $$
-U_k^{E}(x) := \{ (x',t) \, : \, x'\in U_k(x), \, (x',t)\in E\} \; .
+B_k^{E}(x) := \{ (x',t) \, : \, x'\in U_k(x), \, (x',t)\in E\} \; .
 $$
-It counts the frequency of loss events among event in $E$ in the neighborhood of $x$.
+It counts the frequency of loss events among event in $E$ in the neighborhood of $x$. In statistical terms, $\text{LF}^{\text{ts},E}_k(x;c)$ is an empirical estimate of the conditional probability
+$$
+\mathbb{P}\left( DY^\text{ts}_\text{rel}(x',t;c) \leq \text{quantile}_{10\%}\left(DY^\text{bench}_\text{rel}(x;c)\right) \big| E \right) \; .
+$$
 
 ## Loss-frequence-based performance measures
 
@@ -83,7 +86,7 @@ These values are displayed directly in the grid-level maps, using $k=\text{ac}$.
 For the line plots and country tables, these grid-level quantities have to be aggregated to a country level. For this, cells are weighted by their harvest area. Specifically, for a country $C$ I define
 \begin{align*}
 \text{PM}^E(C;c) &:= \frac{\sum_{x\in C} A(x;c) \cdot \text{PM}^E_\text{co}(x;c)}{\sum_{x\in C} A(x;c)} \\
-\text{EO}^E(C;c) &:= \frac{\sum_{x\in C} A(x;c) \cdot \text{EO}^E_\text{co}(x;c)}{\sum_{x\in C} A(x;c)} \; .
+\text{EU}^E(C;c) &:= \frac{\sum_{x\in C} A(x;c) \cdot \text{EU}^E_\text{co}(x;c)}{\sum_{x\in C} A(x;c)} \; .
 \end{align*}
 These aggregated quantities are used for the line plots and country tables.
 
@@ -394,7 +397,7 @@ ggplot(u_co_classified, aes(x = year, y = cell_label, fill = category)) +
 ```{r}
 #| label: fig-mwi-dotmatrix
 #| fig-cap: | 
-#|   For each year, in which at least one dry event occurred in $U_\text{co}(x_0)$ occurred, the proportion of loss events among the relevant cell years is shown. This is a disaggregation of the loss frequencies $\text{LF}_\text{co}^\text{ts}(x_0;\text{mai})$, in that the average of each row (correctly weighted according to the number of dry events) computes the corresponding loss frequency. 
+#|   For each year, in which at least one dry event occurred in $U_\text{co}(x_0)$, the proportion of loss events among the relevant cell years is shown. This is a disaggregation of the loss frequencies $\text{LF}_\text{co}^\text{ts}(x_0;\text{mai})$, in that the average of each row (correctly weighted according to the number of dry events) computes the corresponding loss frequency. 
 #| echo: false
 #| fig-width: 8
 #| fig-height: 6
