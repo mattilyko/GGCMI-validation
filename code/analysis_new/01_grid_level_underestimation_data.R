@@ -49,7 +49,7 @@ get_per_cell_data <- function(cell_dat, country = NULL){
   return(list("res" = res, "multiple_countries" = multiple_countries))
 }
 
-process_cell <- function(cell_lat, cell_lon, dat, window_size = 4){
+process_cell <- function(cell_lat, cell_lon, dat, window_size = 2){
   cell_dat <- dat |> 
     filter(
       abs(lat - cell_lat) <= 0.5 * window_size,
@@ -84,7 +84,7 @@ process_cell <- function(cell_lat, cell_lon, dat, window_size = 4){
   return(cell_res)
 }
 
-get_underestimation_data <- function(crop, window_size = 4){
+get_underestimation_data <- function(crop, window_size = 2){
   message("Starting crop ", crop, "...")
   
   dat <- qs2::qs_read(here::here(
@@ -112,6 +112,6 @@ get_underestimation_data <- function(crop, window_size = 4){
 plan(multisession, workers = 10)
 
 crops <- c("aggr", "mai", "ri1", "ri2", "soy", "swh", "wwh")
-map(crops, get_underestimation_data, window_size = 4)
+map(crops, get_underestimation_data, window_size = 2)
 
 plan(sequential)

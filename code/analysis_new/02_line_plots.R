@@ -116,8 +116,8 @@ quantiles <- dat_aggr |>
   pmap_dfr(function(cell_lat, cell_lon, cell_ctr, cell_area){
     q10 <- dat_aggr |> 
       filter(
-        abs(lat - cell_lat) <= 2,
-        abs(lon - cell_lon) <= 2,
+        abs(lat - cell_lat) <= 1,
+        abs(lon - cell_lon) <= 1,
         ctr == cell_ctr
       ) |> 
       summarize(q10 = quantile(divtrend_obs, 0.1, na.rm = TRUE)) |> 
